@@ -17,7 +17,7 @@ export default function AppLayout() {
 
   return (
     <>
-      <Navbar />
+      <Navbar/>
       <PageWrapper
         maxWidth={isNarrow ? 'md' : 'xl'}
         noPadding={isFullBleed}
