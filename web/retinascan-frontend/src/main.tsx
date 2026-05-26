@@ -1,0 +1,32 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { Toaster } from 'react-hot-toast';
+import App from './App';
+import theme from './theme/theme';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <ThemeProvider theme={theme}>
+        {/* CssBaseline applies MUI's CSS reset consistently */}
+        <CssBaseline />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              borderRadius: '10px',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '14px',
+            },
+            success: { iconTheme: { primary: '#1A6B3C', secondary: '#fff' } },
+          }}
+        />
+        <App />
+      </ThemeProvider>
+    </BrowserRouter>
+  </React.StrictMode>
+);
