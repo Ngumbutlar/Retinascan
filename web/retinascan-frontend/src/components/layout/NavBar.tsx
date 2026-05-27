@@ -33,7 +33,7 @@ import {
 const navItems = [
   { label: 'Dashboard', url: '/' },
   { label: 'Records', url: '/records' },
-  { label: 'Recommendations', url: '/recommendations' },
+  { label: 'Referals', url: '/referals' },
 ];
 
 export default function Navbar() {
@@ -46,7 +46,7 @@ export default function Navbar() {
 
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center', p: 2 }}>
-      <Avatar src="/favicon.ico" sx={{ width: 48, height: 48, mx: 'auto', mb: 1 }} />
+      {/* <Avatar src="/favicon.ico" sx={{ width: 48, height: 48, mx: 'auto', mb: 1 }} /> */}
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, color: 'primary.main' }}>
         RetinaScan
       </Typography>
@@ -120,7 +120,7 @@ export default function Navbar() {
               component={Link}
               to="/new-screening"
               variant="contained"
-              endIcon={<AddIcon />}
+              startIcon={<AddIcon />}
               sx={{
                 display: { xs: 'none', sm: 'inline-flex' },
                 fontWeight: 700,

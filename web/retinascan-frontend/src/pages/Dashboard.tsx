@@ -167,7 +167,7 @@ function GradeRow({
 
 export default function Dashboard() {
   return (
-    <Box className="mx-auto w-full ">
+    <Box className="w-full">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
