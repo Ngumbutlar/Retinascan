@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import {
+  Add as AddIcon,
   Menu as MenuIcon,
   Search as SearchIcon,
   Inbox as InboxIcon,
@@ -31,8 +32,8 @@ import {
 
 const navItems = [
   { label: 'Dashboard', url: '/' },
-  { label: 'New Screening', url: '/new-screening' },
   { label: 'Records', url: '/records' },
+  { label: 'Recommendations', url: '/recommendations' },
 ];
 
 export default function Navbar() {
@@ -89,12 +90,13 @@ export default function Navbar() {
             }}
           >
             <Avatar src="/favicon.ico" sx={{ width: 32, height: 32, mr: 1 }} />
-            <Typography variant="h6" sx={{ display: { xs: 'none', sm: 'block' }, fontWeight: 700 }}>
+            <Typography
+              variant="h6"
+              sx={{ display: { xs: 'none', sm: 'block' }, fontWeight: 700, color: 'primary.main' }}
+            >
               RetinaScan
             </Typography>
           </Box>
-
-          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', lg: 'block' }, mx: 1 }} />
 
           {/* Desktop Navigation Links */}
           <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
@@ -114,6 +116,20 @@ export default function Navbar() {
 
           {/* Action Icons & Profile */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button
+              component={Link}
+              to="/new-screening"
+              variant="contained"
+              endIcon={<AddIcon />}
+              sx={{
+                display: { xs: 'none', sm: 'inline-flex' },
+                fontWeight: 700,
+                px: 2.25,
+                py: 0.9,
+              }}
+            >
+              New Screening
+            </Button>
             <IconButton size="small" component={Link} to="/search" color="inherit">
               <SearchIcon />
             </IconButton>
