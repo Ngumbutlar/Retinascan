@@ -23,6 +23,32 @@
   --breakpoint-xs: 375px;
 }
 
+@layer components {
+  /* MUI outlined inputs on the login form */
+  .login-field .MuiOutlinedInput-root {
+    @apply rounded-lg bg-[#F1F5F4] text-[0.9375rem];
+  }
+  .login-field .MuiOutlinedInput-root fieldset {
+    @apply border-[#E2E8F0];
+  }
+  .login-field .MuiOutlinedInput-root:hover fieldset {
+    @apply border-brand-green-pale;
+  }
+  .login-field .MuiOutlinedInput-root.Mui-focused fieldset {
+    @apply border-brand-green;
+    border-width: 1px;
+  }
+  .login-field .MuiOutlinedInput-input::placeholder {
+    @apply text-gray-400 opacity-100;
+  }
+  .login-field .MuiSelect-select {
+    @apply py-2.5;
+  }
+  .login-field .MuiSelect-icon {
+    @apply right-3 text-gray-400;
+  }
+}
+
 /* Global styles — also after imports
 * {
   box-sizing: border-box;
