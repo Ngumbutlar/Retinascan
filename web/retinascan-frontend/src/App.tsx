@@ -7,7 +7,7 @@ import NewScreening  from './pages/NewScreening';
 import Records       from './pages/Records';
 // import Processing    from './pages/Processing';
 // import Results       from './pages/Results';
-// import PatientRecord from './pages/PatientRecord';
+import PatientRecord from './pages/PatientRecord';
 import Login         from './pages/Login';
 
 export default function App() {
@@ -21,11 +21,12 @@ export default function App() {
         <Route path="/"                element={<Dashboard />} />
         <Route path="/new-screening"   element={<NewScreening />} />
         <Route path="/records"         element={<Records />} />
+        <Route path="/records/:id"     element={<PatientRecord />} /> 
         {/* <Route path="/new-screening"   element={<NewScreening />} />
         <Route path="/processing"      element={<Processing />} />
         <Route path="/results"         element={<Results />} />
         <Route path="/records"         element={<Records />} />
-        <Route path="/records/:id"     element={<PatientRecord />} /> */}
+       */}
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

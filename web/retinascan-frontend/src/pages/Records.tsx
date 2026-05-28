@@ -357,7 +357,13 @@ export default function Records() {
                       </div>
                     </TableCell>
                     <TableCell align="right">
-                      <IconButton size="small" sx={{ color: 'primary.main' }} aria-label="View record">
+                      <IconButton
+                        size="small"
+                        component={Link}
+                        to={`/records/${encodeURIComponent(row.reportId.replace('#', ''))}`}
+                        sx={{ color: 'primary.main' }}
+                        aria-label="View record"
+                      >
                         <EyeIcon fontSize="small" />
                       </IconButton>
                       <IconButton size="small" sx={{ color: 'text.secondary' }} aria-label="Download PDF">
