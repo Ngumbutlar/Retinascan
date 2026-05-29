@@ -1,0 +1,26 @@
+# Web framework
+flask==3.0.3
+flask-cors==4.0.1            # allow requests from your React frontend
+
+# Swagger UI for Flask (replaces FastAPI's built-in /docs)
+flasgger==0.9.7.1            # generates Swagger UI at /apidocs
+
+# Authentication
+PyJWT==2.8.0                 # decode and verify Firebase JWT tokens
+cryptography==42.0.8         # required by PyJWT for RS256 tokens
+
+# Firebase Admin (Firestore)
+# firebase-admin==6.5.0
+
+# ML and image processing
+# tensorflow==2.16.1
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+Pillow==10.3.0
+
+# Environment
+python-dotenv==1.0.1
+
+# Dev and testing
+pytest==8.2.0
+requests==2.31.0             # for writing test scripts
