@@ -14,35 +14,35 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     
     # Note: Stored as a String(128) to accommodate the bcrypt hash.
-    pin = db.Column(db.String(128), nullable=False)
+    password = db.Column(db.String(128), nullable=False)
     
     role = db.Column(db.String(50), nullable=False, default='nurse')
     facility = db.Column(db.String(200), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     is_active = db.Column(db.Boolean, default=True)
 
-    def set_pin(self, pin: str) -> None:
+    def set_password(self, password: str) -> None:
         """
-        Hashes a 4-digit PIN (or password) and stores it in the database.
+        Hashes a password and stores it in the database.
 
         Args:
-            pin: The numeric PIN or password string.
+            password: The plain-text password string.
         """
-        self.pin = bcrypt.generate_password_hash(str(pin)).decode('utf-8')
+        self.password = bcrypt.generate_password_hash(password).decode('utf-8')
 
-    def check_pin(self, pin: str) -> bool:
+    def check_password(self, password: str) -> bool:
         """
-        Verifies if the provided PIN/password matches the stored bcrypt hash.
+        Verifies if the provided password matches the stored bcrypt hash.
 
         Args:
-            pin: The PIN or password string to check.
+            password: The plain-text password string to check.
 
         Returns:
             bool: True if it matches, False otherwise.
         """
-        if not self.pin:
+        if not self.password:
             return False
-        return bcrypt.check_password_hash(self.pin, str(pin))
+        return bcrypt.check_password_hash(self.password, password)
 
     def to_dict(self) -> Dict[str, Any]:
         """
