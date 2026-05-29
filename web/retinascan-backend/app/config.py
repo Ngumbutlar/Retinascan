@@ -31,23 +31,40 @@ class Config:
     MODEL_PATH: str = os.getenv('MODEL_PATH', './app/services/model_weights/retinanet_model.pth') # Example default path
     FRONTEND_URL: str = os.getenv('FRONTEND_URL', 'http://localhost:3000') # Default for local frontend development
 
-    # Basic Flasgger configuration for Swagger UI
+    # Flasgger UI Configuration
     SWAGGER: Dict[str, Any] = {
-        'title': 'RetinaScan API',
         'uiversion': 3,
         'specs_route': '/docs/',
-        'version': '1.0.0',
-        'description': 'API for Diabetic Retinopathy Classification',
-        'termsOfService': 'http://your-terms-of-service.com',
-        'contact': {
-            'name': 'API Support',
-            'url': 'http://your-support-url.com',
-            'email': 'support@example.com'
+        'static_url_path': '/flasgger_static',
+        'specs': [
+            {
+                'endpoint': 'apispec',
+                'route': '/apispec.json',
+                'rule_filter': lambda rule: True,  # all in
+                'model_filter': lambda tag: True,  # all in
+            }
+        ],
+        'headers': []
+    }
+
+    # OpenAPI 3.0 Specification Template
+    SWAGGER_TEMPLATE: Dict[str, Any] = {
+        'swagger': '2.0',
+        'info': {
+            'title': 'RetinaScan API',
+            'version': '1.0.0',
+            'description': 'API for Diabetic Retinopathy Classification',
+            'contact': {
+                'name': 'API Support',
+                'url': 'http://your-support-url.com',
+                'email': 'support@example.com'
+            },
+            'license': {
+                'name': 'Apache 2.0',
+                'url': 'http://www.apache.org/licenses/LICENSE-2.0.html'
+            }
         },
-        'license': {
-            'name': 'Apache 2.0',
-            'url': 'http://www.apache.org/licenses/LICENSE-2.0.html'
-        },
+        'basePath': '/api',
         'schemes': ['http', 'https'],
         'securityDefinitions': {
             'Bearer': {
