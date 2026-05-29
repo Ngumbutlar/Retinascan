@@ -9,6 +9,8 @@ def init_db() -> None:
     """
     app = create_app()
     with app.app_context():
+        print("Dropping all existing tables...")
+        db.drop_all()
         print("Creating all database tables...")
         db.create_all()
 
@@ -24,8 +26,8 @@ def init_db() -> None:
                 role="admin",
                 facility="RetinaScan Central"
             )
-            # Using the password specified: Admin1234!
-            new_admin.set_pin("Admin1234!")
+            # Default 4-digit numeric password for the admin
+            new_admin.set_password("1234")
             
             db.session.add(new_admin)
             db.session.commit()
