@@ -20,12 +20,8 @@ import {
   KeyboardArrowDown as ChevronDownIcon,
 } from '@mui/icons-material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-
-const FACILITIES = [
-  'Central Valley Eye Clinic',
-  'Northside Community Health',
-  'Riverside Medical Center',
-];
+import { useAuth } from '../hooks/useAuth';
+import * as authService from '../services/authService';
 
 const fieldLabelSx = {
   display: 'block',
@@ -98,18 +94,57 @@ function BackgroundWatermark() {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
+
+  const [facilities, setFacilities] = React.useState<{id: number, name: string}[]>([]);
   const [facility, setFacility] = React.useState('');
   const [email, setEmail] = React.useState('');
-  const [pin, setPin] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  // Redirect if already authenticated
+  React.useEffect(() => {
+    if (isAuthenticated) navigate('/dashboard', { replace: true });
+  }, [isAuthenticated, navigate]);
+
+  // Fetch facilities from backend on mount
+  React.useEffect(() => {
+    const loadFacilities = async () => {
+      try {
+        // We cast as any temporarily to allow the transition check
+        const data: any = await authService.getFacilities();
+        
+        // If the API is still returning a legacy array of strings, transform it into objects
+        if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'string') {
+          setFacilities(data.map((name: string, index: number) => ({ id: index, name })));
+        } else {
+          setFacilities(data || []);
+        }
+      } catch (err) {
+        console.error('Failed to load facilities:', err);
+      }
+    };
+    loadFacilities();
+  }, []);
 
   const handlePinChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const digits = event.target.value.replace(/\D/g, '').slice(0, 4);
-    setPin(digits);
+    setPassword(digits);
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    navigate('/');
+    setIsLoading(true);
+    setError('');
+    try {
+      await login(email, password);
+      navigate('/dashboard', { replace: true });
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Invalid email or password');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -226,9 +261,9 @@ export default function Login() {
                     },
                   }}
                 >
-                  {FACILITIES.map((name) => (
-                    <MenuItem key={name} value={name}>
-                      {name}
+                  {facilities.map((f) => (
+                    <MenuItem key={f.id} value={f.name}>
+                      {f.name}
                     </MenuItem>
                   ))}
                 </Select>
@@ -267,7 +302,7 @@ export default function Login() {
                 name="pin"
                 type="password"
                 placeholder="••••"
-                value={pin}
+                value={password}
                 onChange={handlePinChange}
                 required
                 sx={inputSx}
@@ -294,12 +329,15 @@ export default function Login() {
               </Typography>
             </Box>
 
+            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+
             <Button
               type="submit"
               variant="contained"
               fullWidth
               size="large"
-              endIcon={<LoginIcon sx={{ fontSize: 20 }} />}
+              disabled={isLoading}
+              endIcon={!isLoading ? <LoginIcon sx={{ fontSize: 20 }} /> : undefined}
               sx={{
                 mt: 0.5,
                 py: 1.375,
@@ -315,7 +353,7 @@ export default function Login() {
                 },
               }}
             >
-              Sign in
+              {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
           </Box>
         </Paper>

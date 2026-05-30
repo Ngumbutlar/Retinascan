@@ -1,5 +1,5 @@
-import api from '../../api';
-import { LoginCredentials, LoginResponse, User } from '../types/auth';
+import api from './api';
+import type { LoginCredentials, LoginResponse, User } from '../types/auth';
 
 /**
  * Handles user login by sending credentials to the backend.
@@ -56,4 +56,13 @@ export const getCurrentUser = (): User | null => {
     }
   }
   return null;
+};
+
+/**
+ * Fetches the list of available healthcare facilities from the backend.
+ * @returns A promise that resolves to an array of facility names.
+ */
+export const getFacilities = async (): Promise<string[]> => {
+  const response = await api.get<string[]>('/auth/facilities');
+  return response.data;
 };

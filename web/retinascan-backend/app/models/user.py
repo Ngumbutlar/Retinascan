@@ -17,7 +17,10 @@ class User(db.Model):
     password = db.Column(db.String(128), nullable=False)
     
     role = db.Column(db.String(50), nullable=False, default='nurse')
-    facility = db.Column(db.String(200), nullable=True)
+    
+    facility_id = db.Column(db.Integer, db.ForeignKey('facilities.id'), nullable=True)
+    facility = db.relationship('Facility', backref=db.backref('staff', lazy=True))
+    
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     is_active = db.Column(db.Boolean, default=True)
 
@@ -56,7 +59,7 @@ class User(db.Model):
             "name": self.name,
             "email": self.email,
             "role": self.role,
-            "facility": self.facility,
+            "facility": self.facility.name if self.facility else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "is_active": self.is_active
         }
