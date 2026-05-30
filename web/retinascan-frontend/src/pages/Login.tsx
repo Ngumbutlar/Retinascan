@@ -13,7 +13,7 @@ import {
   Avatar,
 } from '@mui/material';
 import {
-  PersonOutlined as PersonIcon,
+  MailOutlined as MailIcon,
   LockOutlined as LockIcon,
   Login as LoginIcon,
   VerifiedUser as ShieldIcon,
@@ -99,7 +99,7 @@ function BackgroundWatermark() {
 export default function Login() {
   const navigate = useNavigate();
   const [facility, setFacility] = React.useState('');
-  const [username, setUsername] = React.useState('');
+  const [email, setEmail] = React.useState('');
   const [pin, setPin] = React.useState('');
 
   const handlePinChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -236,21 +236,22 @@ export default function Login() {
             </Box>
 
             <Box>
-              <FieldLabel>Username</FieldLabel>
+              <FieldLabel>Email</FieldLabel>
               <TextField
                 fullWidth
                 size="small"
-                name="username"
-                placeholder="Clinical Technician ID"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                name="email"
+                type="email"
+                placeholder="Clinical Staff Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 sx={inputSx}
                 slotProps={{
                   input: {
                     endAdornment: (
                       <InputAdornment position="end">
-                        <PersonIcon sx={{ fontSize: 20, color: '#A0AEC0' }} />
+                        <MailIcon sx={{ fontSize: 20, color: '#A0AEC0' }} />
                       </InputAdornment>
                     ),
                   },
