@@ -29,6 +29,7 @@ import {
   Lightbulb as LightbulbIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
+import { useAuth } from '../../hooks/useAuth';
 
 const navItems = [
   { label: 'Dashboard', url: '/' },
@@ -37,12 +38,18 @@ const navItems = [
 ];
 
 export default function Navbar() {
+  const { logout } = useAuth();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [profileAnchorEl, setProfileAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => setProfileAnchorEl(event.currentTarget);
   const handleProfileMenuClose = () => setProfileAnchorEl(null);
+
+  const handleLogout = () => {
+    handleProfileMenuClose();
+    logout();
+  };
 
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center', p: 2 }}>
@@ -165,8 +172,10 @@ export default function Navbar() {
                 Share feedback
               </MenuItem>
               <Divider />
-              <MenuItem onClick={handleProfileMenuClose} component={Link} to="/logout">
-                <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
+              <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" sx={{ color: 'error.main' }} />
+                </ListItemIcon>
                 Sign out
               </MenuItem>
             </Menu>

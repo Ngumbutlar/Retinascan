@@ -5,6 +5,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
+import { AuthProvider } from './context/AuthContext';
 import theme from './theme/theme';
 import './index.css';
 
@@ -25,7 +26,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             success: { iconTheme: { primary: '#1A6B3C', secondary: '#fff' } },
           }}
         />
-        <App />
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
   </React.StrictMode>

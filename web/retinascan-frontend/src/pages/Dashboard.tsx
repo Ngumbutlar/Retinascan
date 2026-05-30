@@ -25,6 +25,7 @@ import {
   TrendingUpOutlined as TrendingUpIcon,
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
+import * as authService from '../services/authService';
 
 type ScreeningRow = {
   patientName: string;
@@ -177,6 +178,15 @@ export default function Dashboard() {
           <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.75 }}>
             Monday, October 23, 2023
           </Typography>
+          
+          {/* Temporary debug button to verify auth storage */}
+          <Button 
+            size="small"
+            onClick={() => console.log('Current User from Storage:', authService.getCurrentUser())}
+            sx={{ mt: 1, textTransform: 'none', color: 'gray' }}
+          >
+            Debug: Log User Info
+          </Button>
         </div>
 
         <Button
