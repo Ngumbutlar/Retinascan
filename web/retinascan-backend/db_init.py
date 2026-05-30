@@ -2,6 +2,7 @@ import sys
 from app import create_app
 from app.extensions import db
 from app.models.user import User
+from app.models.facility import Facility
 
 def init_db() -> None:
     """
@@ -20,11 +21,16 @@ def init_db() -> None:
 
         if not admin:
             print(f"Seeding default admin user: {admin_email}")
+            
+            # Create default facility first
+            central_facility = Facility(name="RetinaScan Central")
+            db.session.add(central_facility)
+
             new_admin = User(
                 name="Admin",
                 email=admin_email,
                 role="admin",
-                facility="RetinaScan Central"
+                facility=central_facility
             )
             # Default 4-digit numeric password for the admin
             new_admin.set_password("1234")

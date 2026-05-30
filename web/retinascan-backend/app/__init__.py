@@ -3,7 +3,6 @@ from flask import Flask
 from app.config import Config
 from app.extensions import db, jwt, bcrypt, cors
 from flasgger import Swagger
-
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -19,12 +18,18 @@ def create_app(config_class=Config):
     jwt.init_app(app)
     bcrypt.init_app(app)
     cors.init_app(app, resources={
-        r"/*": {"origins": app.config.get("FRONTEND_URL", "*")}
+        r"/*": {
+            "origins": ["http://localhost:5173"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
     })
 
     # Step 2: Register ALL blueprints first
     from app.routes.auth import auth_bp
     from app.routes.health import health_bp
+    from app.routes.facility import facility_bp
+
     # Ensure these exist in your routes directory
     try:
         from app.routes.records import records_bp
@@ -33,6 +38,7 @@ def create_app(config_class=Config):
         pass
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(facility_bp, url_prefix='/auth/facilities')
     app.register_blueprint(health_bp)
 
     # Step 3: Initialise Swagger LAST
