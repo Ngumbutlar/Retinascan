@@ -1,4 +1,13 @@
 /**
+ * Represents a healthcare facility.
+ */
+export interface Facility {
+  id: number;
+  name: string;
+  location: string;
+}
+
+/**
  * Represents a user in the RetinaScan system.
  */
 export interface User {
@@ -23,4 +32,5 @@ export interface LoginResponse {
 export interface LoginCredentials {
   email: string;
   password: string;
+  facility: string;
 }

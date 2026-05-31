@@ -22,6 +22,7 @@ import {
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import * as authService from '../services/authService';
+import type { Facility } from '../types/auth';
 
 const fieldLabelSx = {
   display: 'block',
@@ -96,7 +97,8 @@ export default function Login() {
   const navigate = useNavigate();
   const { login, isAuthenticated } = useAuth();
 
-  const [facilities, setFacilities] = React.useState<{id: number, name: string}[]>([]);
+  const [facilities, setFacilities] = React.useState<Facility[]>([]);
+  const [facilitiesLoading, setFacilitiesLoading] = React.useState(true);
   const [facility, setFacility] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -111,18 +113,21 @@ export default function Login() {
   // Fetch facilities from backend on mount
   React.useEffect(() => {
     const loadFacilities = async () => {
+      setFacilitiesLoading(true);
       try {
         // We cast as any temporarily to allow the transition check
         const data: any = await authService.getFacilities();
         
         // If the API is still returning a legacy array of strings, transform it into objects
         if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'string') {
-          setFacilities(data.map((name: string, index: number) => ({ id: index, name })));
+          setFacilities(data.map((name: string, index: number) => ({ id: index, name, location: '' })));
         } else {
           setFacilities(data || []);
         }
       } catch (err) {
         console.error('Failed to load facilities:', err);
+      } finally {
+        setFacilitiesLoading(false);
       }
     };
     loadFacilities();
@@ -237,13 +242,16 @@ export default function Login() {
                   value={facility}
                   onChange={(e) => setFacility(e.target.value)}
                   name="facility"
+                  disabled={facilitiesLoading}
                   required
                   IconComponent={ChevronDownIcon}
                   renderValue={(selected) => {
+                    if (facilitiesLoading) return 'Loading facilities...';
+                    if (facilities.length === 0 && !facilitiesLoading) return 'Unable to load facilities';
                     if (!selected) {
                       return (
                         <Typography component="span" sx={{ color: '#A0AEC0', fontSize: '0.9375rem' }}>
-                          Select healthcare facility
+                          Select your facility
                         </Typography>
                       );
                     }
@@ -261,6 +269,10 @@ export default function Login() {
                     },
                   }}
                 >
+                  <MenuItem value="" disabled>
+                    Select your facility
+                  </MenuItem>
+                  
                   {facilities.map((f) => (
                     <MenuItem key={f.id} value={f.name}>
                       {f.name}
