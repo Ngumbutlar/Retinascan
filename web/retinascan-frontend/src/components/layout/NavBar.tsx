@@ -32,9 +32,9 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 
 const navItems = [
-  { label: 'Dashboard', url: '/' },
+  { label: 'Dashboard', url: '/dashboard' },
   { label: 'Records', url: '/records' },
-  { label: 'Referals', url: '/referals' },
+  { label: 'Referrals', url: '/referrals' },
 ];
 
 export default function Navbar() {

@@ -20,7 +20,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}> {/* AppLayout provides the common UI for protected routes */}
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/screening" element={<NewScreening />} />
+          <Route path="/new-screening" element={<NewScreening />} />
           <Route path="/records" element={<Records />} />
           <Route path="/records/:id" element={<PatientRecord />} />
           <Route path="/results" element={<Results />} />
