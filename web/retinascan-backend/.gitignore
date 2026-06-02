@@ -8,3 +8,6 @@ serviceAccountKey.json
 *.db
 .vscode/
 retinascan_env
+instance
+=0.5.0
+=5.29.1
