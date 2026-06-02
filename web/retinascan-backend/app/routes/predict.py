@@ -99,7 +99,7 @@ def handle_prediction():
         inference_result = run_inference(image_bytes)
         
         if "error" in inference_result:
-            status_code = inference_result.get("status_code", 500)
+            status_code = inference_result.get("status", inference_result.get("status_code", 500))
             return jsonify({"error": inference_result["error"]}), status_code
 
         # 4. Get clinical recommendation
