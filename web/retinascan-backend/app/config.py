@@ -28,7 +28,7 @@ class Config:
     JWT_BLOCKLIST_ENABLED: bool = True
     JWT_BLOCKLIST_TOKEN_CHECKS: List[str] = ["access", "refresh"] # Enable blocklisting for access and refresh tokens
     JWT_ACCESS_TOKEN_EXPIRES: timedelta = timedelta(hours=1)
-    MODEL_PATH: str = os.getenv('MODEL_PATH', './app/services/model_weights/retinanet_model.pth') # Example default path
+    MODEL_PATH: str = os.getenv('MODEL_PATH', './app/services/model_weights/retinanet_model.pth')
     FRONTEND_URL: str = os.getenv('FRONTEND_URL', 'http://localhost:3000') # Default for local frontend development
 
     # Flasgger UI Configuration

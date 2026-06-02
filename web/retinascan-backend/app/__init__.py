@@ -30,6 +30,7 @@ def create_app(config_class=Config):
     from app.routes.health import health_bp
     from app.routes.facility import facility_bp
     from app.routes.screening import new_screening_bp
+    from app.routes.predict import predict_bp
 
     # Ensure these exist in your routes directory
     try:
@@ -42,6 +43,7 @@ def create_app(config_class=Config):
     app.register_blueprint(facility_bp, url_prefix='/auth/facilities')
     app.register_blueprint(health_bp)
     app.register_blueprint(new_screening_bp, url_prefix='/api')
+    app.register_blueprint(predict_bp)
 
     # Step 3: Initialise Swagger LAST
     swagger_config = {

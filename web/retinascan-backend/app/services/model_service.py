@@ -18,7 +18,7 @@ It uses a trained TensorFlow EfficientNetB3 model.
 logger = logging.getLogger(__name__)
 
 # Model configuration
-MODEL_PATH = 'model/retinascan_savedmodel/'
+MODEL_PATH = 'model/retinascan_savedmodel/model.weights.h5'
 DR_CLASSES = ["No DR", "Mild", "Moderate", "Severe", "Proliferative"]
 
 # Module-level model variable to ensure it's loaded only once
