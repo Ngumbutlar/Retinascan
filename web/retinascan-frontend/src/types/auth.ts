@@ -16,6 +16,7 @@ export interface User {
   email: string;
   role: string;
   facility: string | null;
+  facility_id?: number;
 }
 
 /**
