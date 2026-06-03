@@ -16,14 +16,15 @@ export default function App() {
       {/* Public route: Login page */}
       <Route path="/login" element={<Login />} />
 
-      {/* Protected routes: Wrapped by ProtectedRoute, and then by AppLayout */}
+      {/* Protected routes: Wrapped by ProtectedRoute, then AppLayout */}
       <Route element={<ProtectedRoute />}>
-        <Route element={<AppLayout />}> {/* AppLayout provides the common UI for protected routes */}
+        <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          {/* Screening flow */}
           <Route path="/new-screening" element={<NewScreening />} />
+          <Route path="/results" element={<Results />} />
           <Route path="/records" element={<Records />} />
           <Route path="/records/:id" element={<PatientRecord />} />
-          <Route path="/results" element={<Results />} />
         </Route>
       </Route>
 
