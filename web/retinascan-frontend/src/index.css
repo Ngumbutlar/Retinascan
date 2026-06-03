@@ -47,6 +47,65 @@
   .login-field .MuiSelect-icon {
     @apply right-3 text-gray-400;
   }
+
+  .animate-retina-pulse {
+    animation: retina-pulse 2.4s ease-in-out infinite;
+  }
+
+  .animate-retina-ripple {
+    animation: retina-ripple 2.4s ease-out infinite;
+  }
+
+  .animate-check-pop {
+    animation: check-pop 0.5s ease-out forwards;
+  }
+
+  .severity-scale-segment {
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.45s ease-out;
+  }
+
+  .severity-scale-ready .severity-scale-segment {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes retina-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes retina-ripple {
+  0% {
+    box-shadow: 0 0 0 0 rgba(26, 107, 60, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(26, 107, 60, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(26, 107, 60, 0);
+  }
+}
+
+@keyframes check-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* Global styles — also after imports
