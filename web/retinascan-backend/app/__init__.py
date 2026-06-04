@@ -17,11 +17,13 @@ def create_app(config_class=Config):
     db.init_app(app)
     jwt.init_app(app)
     bcrypt.init_app(app)
+    # Allow Vite dev server; Content-Type covers multipart/form-data (with boundary)
     cors.init_app(app, resources={
         r"/*": {
             "origins": ["http://localhost:5173"],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type", "Authorization"]
+            "allow_headers": ["Content-Type", "Authorization"],
+            "expose_headers": ["Content-Type"],
         }
     })
 
