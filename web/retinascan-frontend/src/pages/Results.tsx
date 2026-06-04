@@ -6,9 +6,11 @@ import {
   CardContent,
   Chip,
   Divider,
+  IconButton,
   LinearProgress,
   Typography,
 } from '@mui/material';
+import ScreeningReport from '../components/pdf/ScreeningReport';
 import {
   Add as AddIcon,
   FiberManualRecord as DotIcon,
@@ -68,6 +70,7 @@ export default function Results() {
   const navigate = useNavigate();
   const state = location.state as ResultsLocationState | null;
   const [scaleReady, setScaleReady] = React.useState(false);
+  const [reportOpen, setReportOpen] = React.useState(false);
 
   React.useEffect(() => {
     const timer = requestAnimationFrame(() => setScaleReady(true));
@@ -92,6 +95,8 @@ export default function Results() {
     toast('PDF download coming soon', { icon: '📄' });
   };
 
+  const openReportPreview = () => setReportOpen(true);
+
   const handleScreenAnother = () => {
     // replace + null state so Results cannot show stale screening data
     navigate('/new-screening', { replace: true, state: null });
@@ -99,6 +104,13 @@ export default function Results() {
 
   return (
     <Box className="w-full">
+      <ScreeningReport
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        data={state}
+        onDownloadPdf={handleDownloadPdf}
+      />
+
       {/* Page header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -181,11 +193,18 @@ export default function Results() {
               />
 
               <div className="flex justify-center py-6">
-                <img
-                  src={fundus_image_preview}
-                  alt={`Fundus scan — ${formatEyeCaption(patient.eye)}`}
-                  className="max-h-[280px] w-full max-w-[320px] rounded-full object-cover shadow-lg"
-                />
+                <button
+                  type="button"
+                  onClick={openReportPreview}
+                  className="group relative cursor-pointer rounded-full border-0 bg-transparent p-0"
+                  aria-label="Preview diagnostic report"
+                >
+                  <img
+                    src={fundus_image_preview}
+                    alt={`Fundus scan — ${formatEyeCaption(patient.eye)}`}
+                    className="max-h-[280px] w-full max-w-[320px] rounded-full object-cover shadow-lg transition-opacity group-hover:opacity-90"
+                  />
+                </button>
               </div>
 
               <Chip
@@ -236,12 +255,20 @@ export default function Results() {
               </div>
 
               <div className="flex items-start gap-3">
-                <div
-                  className="grid size-12 shrink-0 place-items-center rounded-lg"
-                  style={{ backgroundColor: `${accentColor}33` }}
+                <IconButton
+                  onClick={openReportPreview}
+                  aria-label="Preview diagnostic report"
+                  sx={{
+                    size: 48,
+                    width: 48,
+                    height: 48,
+                    borderRadius: '10px',
+                    bgcolor: `${accentColor}33`,
+                    '&:hover': { bgcolor: `${accentColor}44` },
+                  }}
                 >
                   <EyeIcon sx={{ color: accentColor }} />
-                </div>
+                </IconButton>
                 <div>
                   <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
                     {recommendation.severity || grade_label}
@@ -434,7 +461,7 @@ export default function Results() {
           variant="contained"
           size="large"
           startIcon={<PdfIcon />}
-          onClick={handleDownloadPdf}
+          onClick={openReportPreview}
           sx={{
             py: 1.4,
             borderRadius: '10px',

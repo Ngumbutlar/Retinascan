@@ -1,12 +1,12 @@
 import * as React from 'react';
 import {
   Box,
-  CircularProgress,
   Fade,
   Modal,
   Typography,
 } from '@mui/material';
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined';
+import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
 import RemoveRedEyeOutlined from '@mui/icons-material/RemoveRedEyeOutlined';
 import ShieldOutlined from '@mui/icons-material/ShieldOutlined';
 import type { ScreeningResult } from '../../types/screening';
@@ -15,19 +15,10 @@ import borderImage from '../../assets/Border.png';
 const STAGE_DURATION_MS = 1500;
 const COMPLETE_DELAY_MS = 1000;
 
-const STAGES = [
-  {
-    title: 'Preprocessing image...',
-    subtext: 'Applying contrast enhancement',
-  },
-  {
-    title: 'Running AI analysis...',
-    subtext: 'Classifying retinal features',
-  },
-  {
-    title: 'Preparing your results...',
-    subtext: 'Almost done',
-  },
+const STEP_LABELS = [
+  'Preprocessing image',
+  'Running AI analysis',
+  'Generating report',
 ] as const;
 
 export interface ProcessingProps {
@@ -40,30 +31,92 @@ export interface ProcessingProps {
   onError: (error: string) => void;
 }
 
-function StageIcon({ stage }: { stage: number }) {
-  if (stage === 0) {
+type StepStatus = 'completed' | 'active' | 'pending';
+
+function getStepStatus(stepIndex: number, currentStage: number): StepStatus {
+  if (currentStage > stepIndex) return 'completed';
+  if (currentStage === stepIndex) return 'active';
+  return 'pending';
+}
+
+function StepIcon({ status }: { status: StepStatus }) {
+  if (status === 'completed') {
     return (
-      <CircularProgress
-        size={48}
-        thickness={4}
-        sx={{ color: '#1A6B3C' }}
-      />
+      <div className="grid size-7 shrink-0 place-items-center rounded-full bg-brand-green text-white">
+        <CheckCircleOutlined sx={{ fontSize: 18 }} />
+      </div>
     );
   }
 
-  if (stage === 1) {
+  if (status === 'active') {
     return (
-      <div className="animate-pulse">
-        <RemoveRedEyeOutlined sx={{ fontSize: 48, color: '#1A6B3C' }} />
+      <div className="grid size-7 shrink-0 place-items-center rounded-full border-2 border-brand-green">
+        <span className="size-2.5 rounded-full bg-brand-green" />
       </div>
     );
   }
 
   return (
-    <CheckCircleOutlined
-      className="animate-check-pop"
-      sx={{ fontSize: 52, color: '#1A6B3C' }}
-    />
+    <div className="grid size-7 shrink-0 place-items-center rounded-full bg-[#EDF2F0] text-[#A0AEC0]">
+      <DescriptionOutlined sx={{ fontSize: 16 }} />
+    </div>
+  );
+}
+
+function StepStatusIndicator({ status }: { status: StepStatus }) {
+  if (status === 'completed') {
+    return (
+      <span className="text-[0.68rem] font-extrabold uppercase tracking-wider text-brand-green">
+        Success
+      </span>
+    );
+  }
+
+  if (status === 'active') {
+    return (
+      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-[#E2E8F0]">
+        <div className="animate-analysis-progress h-full rounded-full bg-brand-green" />
+      </div>
+    );
+  }
+
+  return (
+    <span className="text-[0.68rem] font-extrabold uppercase tracking-wider text-[#A0AEC0]">
+      Waiting
+    </span>
+  );
+}
+
+function ProgressStepRow({
+  label,
+  stepIndex,
+  stage,
+}: {
+  label: string;
+  stepIndex: number;
+  stage: number;
+}) {
+  const status = getStepStatus(stepIndex, stage);
+
+  return (
+    <div
+      className={`flex items-center gap-3 px-4 py-3.5 ${
+        stepIndex < STEP_LABELS.length - 1 ? 'border-b border-[#E8EDEA]' : ''
+      }`}
+    >
+      <StepIcon status={status} />
+      <Typography
+        variant="body2"
+        sx={{
+          flex: 1,
+          fontWeight: status === 'pending' ? 500 : 600,
+          color: status === 'pending' ? 'text.secondary' : 'text.primary',
+        }}
+      >
+        {label}
+      </Typography>
+      <StepStatusIndicator status={status} />
+    </div>
   );
 }
 
@@ -130,7 +183,6 @@ export default function Processing({
   }, [isOpen]);
 
   const previewSrc = imagePreview ?? borderImage;
-  const { title, subtext } = STAGES[stage];
 
   return (
     <Modal
@@ -139,7 +191,7 @@ export default function Processing({
       closeAfterTransition
       slotProps={{
         backdrop: {
-          className: 'bg-black/60',
+          className: 'bg-black/50',
         },
       }}
       sx={{
@@ -151,70 +203,58 @@ export default function Processing({
     >
       <Fade in={isOpen}>
         <Box
-          className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl outline-none"
+          className="flex w-full max-w-xl flex-col items-center rounded-2xl bg-white p-8 shadow-2xl outline-none sm:p-10"
           role="dialog"
           aria-modal="true"
           aria-labelledby="processing-title"
+          aria-describedby="processing-subtitle"
           aria-live="polite"
         >
-          <Typography
-            id="processing-title"
-            variant="body2"
-            sx={{
-              mb: 3,
-              textAlign: 'center',
-              fontWeight: 600,
-              color: 'text.secondary',
-            }}
-          >
-            Analysing: {patientName} — {eye}
-          </Typography>
+          <span className="sr-only">
+            Analysing {patientName}, {eye}
+          </span>
 
-          <div className="mx-auto mb-6 flex justify-center">
-            <div className="relative">
-              <div className="animate-retina-pulse animate-retina-ripple overflow-hidden rounded-2xl">
-                <img
-                  src={previewSrc}
-                  alt="Retinal fundus scan"
-                  className="block h-44 w-44 object-cover sm:h-48 sm:w-48"
-                />
-              </div>
-              <div className="absolute -bottom-1 -right-1 grid size-8 place-items-center rounded-lg bg-brand-green text-white shadow-md">
-                <RemoveRedEyeOutlined sx={{ fontSize: 16 }} />
-              </div>
+          <div className="relative mb-6">
+            <div className="animate-retina-pulse animate-retina-ripple overflow-hidden rounded-2xl shadow-[0_8px_32px_rgba(26,107,60,0.18)]">
+              <img
+                src={previewSrc}
+                alt="Retinal fundus scan"
+                className="block h-44 w-44 object-cover sm:h-48 sm:w-48"
+              />
+            </div>
+            <div className="absolute -bottom-1 -right-1 grid size-9 place-items-center rounded-xl bg-brand-green text-white shadow-md">
+              <RemoveRedEyeOutlined sx={{ fontSize: 18 }} />
             </div>
           </div>
 
-          <div className="flex flex-col items-center text-center">
-            <StageIcon stage={stage} />
+          <Typography
+            id="processing-title"
+            variant="h4"
+            sx={{ fontWeight: 800, lineHeight: 1.2, color: 'text.primary', textAlign: 'center' }}
+          >
+            Analyzing Retina Data
+          </Typography>
 
-            <Typography
-              variant="h6"
-              sx={{ mt: 2.5, fontWeight: 700, color: 'text.primary' }}
-            >
-              {title}
-            </Typography>
+          <Typography
+            id="processing-subtitle"
+            variant="body1"
+            sx={{ mt: 1, color: 'text.secondary', textAlign: 'center' }}
+          >
+            Usually takes 3–5 seconds.
+          </Typography>
 
-            <Typography
-              variant="body2"
-              sx={{ mt: 0.75, color: 'text.secondary' }}
-            >
-              {subtext}
-            </Typography>
-          </div>
-
-          <div className="mt-8 flex justify-center gap-2">
-            {STAGES.map((_, index) => (
-              <span
-                key={index}
-                className={`size-2 rounded-full transition-colors duration-300 ${
-                  index === stage ? 'bg-brand-green' : 'bg-gray-300'
-                }`}
+          <div className="mt-8 w-full overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F9FBFA]">
+            {STEP_LABELS.map((label, index) => (
+              <ProgressStepRow
+                key={label}
+                label={label}
+                stepIndex={index}
+                stage={stage}
               />
             ))}
           </div>
 
-          <div className="mt-6 flex items-center justify-center gap-1.5 text-gray-400">
+          <div className="mt-10 flex items-center justify-center gap-1.5 text-[#A0AEC0]">
             <ShieldOutlined sx={{ fontSize: 14 }} />
             <Typography variant="caption" sx={{ color: 'inherit', letterSpacing: '0.02em' }}>
               Secured by HIPAA-compliant Clinical Cloud

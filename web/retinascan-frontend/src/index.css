@@ -69,6 +69,11 @@
   .severity-scale-ready .severity-scale-segment {
     transform: scaleX(1);
   }
+
+  .animate-analysis-progress {
+    width: 75%;
+    animation: analysis-progress 1.6s ease-in-out infinite;
+  }
 }
 
 @keyframes retina-pulse {
@@ -105,6 +110,18 @@
   100% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes analysis-progress {
+  0% {
+    width: 42%;
+  }
+  50% {
+    width: 78%;
+  }
+  100% {
+    width: 42%;
   }
 }
 
