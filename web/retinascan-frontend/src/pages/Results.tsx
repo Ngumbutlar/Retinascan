@@ -9,6 +9,7 @@ import {
   IconButton,
   LinearProgress,
   Typography,
+  CircularProgress,
 } from '@mui/material';
 import ScreeningReport from '../components/pdf/ScreeningReport';
 import {
@@ -21,6 +22,8 @@ import {
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
+import api from '../services/api';
+import { useDownloadPDF } from '../hooks/useDownloadPDF';
 import { Link as RouterLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import {
   DR_GRADE_LABELS,
@@ -71,6 +74,7 @@ export default function Results() {
   const state = location.state as ResultsLocationState | null;
   const [scaleReady, setScaleReady] = React.useState(false);
   const [reportOpen, setReportOpen] = React.useState(false);
+  const { downloadPDF, downloading: downloadLoading, error: downloadError } = useDownloadPDF();
 
   React.useEffect(() => {
     const timer = requestAnimationFrame(() => setScaleReady(true));
@@ -91,15 +95,20 @@ export default function Results() {
     : '—';
   const confidencePct = toPercent(confidence);
 
-  const handleDownloadPdf = () => {
-    toast('PDF download coming soon', { icon: '📄' });
-  };
-
   const openReportPreview = () => setReportOpen(true);
 
   const handleScreenAnother = () => {
     // replace + null state so Results cannot show stale screening data
     navigate('/new-screening', { replace: true, state: null });
+  };
+
+  const handleDownloadPDF = async () => {
+    await downloadPDF(record_id);
+    if (!downloadError) {
+      toast.success('PDF report downloaded successfully!');
+    } else {
+      toast.error(downloadError);
+    }
   };
 
   return (
@@ -108,7 +117,6 @@ export default function Results() {
         open={reportOpen}
         onClose={() => setReportOpen(false)}
         data={state}
-        onDownloadPdf={handleDownloadPdf}
       />
 
       {/* Page header */}
@@ -457,20 +465,29 @@ export default function Results() {
 
       {/* Bottom actions */}
       <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={<PdfIcon />}
-          onClick={openReportPreview}
-          sx={{
-            py: 1.4,
-            borderRadius: '10px',
-            fontWeight: 700,
-            textTransform: 'none',
-          }}
-        >
-          Download PDF Report
-        </Button>
+        <div> {/* Wrapper for button and its error message */}
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={downloadLoading ? <CircularProgress size={20} color="inherit" /> : <PdfIcon />}
+            onClick={handleDownloadPDF}
+            disabled={downloadLoading}
+            sx={{
+              py: 1.4,
+              borderRadius: '10px',
+              fontWeight: 700,
+              textTransform: 'none',
+              width: '100%',
+            }}
+          >
+            {downloadLoading ? 'Downloading...' : 'Download PDF Report'}
+          </Button>
+          {downloadError && (
+            <Typography variant="body2" color="error" sx={{ mt: 1, textAlign: 'center' }}>
+              {downloadError}
+            </Typography>
+          )}
+        </div>
         <Button
           variant="outlined"
           size="large"
@@ -483,6 +500,7 @@ export default function Results() {
             textTransform: 'none',
             borderColor: 'primary.main',
             color: 'primary.main',
+            width: '100%',
           }}
         >
           Screen Another Patient
