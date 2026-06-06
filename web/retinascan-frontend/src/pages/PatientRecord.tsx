@@ -1,3 +1,4 @@
+import { useState, useEffect, useMemo } from 'react';
 import {
   Avatar,
   Box,
@@ -5,6 +6,7 @@ import {
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   IconButton,
   LinearProgress,
   Table,
@@ -13,41 +15,88 @@ import {
   TableHead,
   TableRow,
   Typography,
+  Skeleton, // Added Skeleton import
 } from '@mui/material';
 import {
-  AnalyticsOutlined as AnalysisIcon,
-  ArchiveOutlined as ArchiveIcon,
-  DashboardOutlined as DashboardIcon,
+  // AnalyticsOutlined as AnalysisIcon,
+  // ArchiveOutlined as ArchiveIcon,
+  // DashboardOutlined as DashboardIcon,
   DescriptionOutlined as ReportIcon,
+  QueryStatsOutlined as TrendIcon,
   DownloadOutlined as DownloadIcon,
   EditOutlined as EditIcon,
   InfoOutlined as InfoIcon,
   PeopleOutlined as PatientsIcon,
   RemoveRedEyeOutlined as EyeIcon,
-  AddAPhotoOutlined as CaptureIcon,
+  AddAPhotoOutlined as CaptureIcon, // Keep CaptureIcon
 } from '@mui/icons-material';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom'; // Added useNavigate import
+import dayjs from 'dayjs';
+import api from '../services/api';
+import { useDownloadPDF } from '../hooks/useDownloadPDF';
+import ScreeningReport from '../components/pdf/ScreeningReport';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, ReferenceLine
+} from 'recharts';
 
-type HistoryRow = {
-  date: string;
-  time: string;
+interface PatientScreening {
+  id: number;
+  patient_name: string;
+  patient_age: number;
+  patient_sex: string;
+  hospital_id: string;
   eye: string;
-  grade: 'Moderate NPDR' | 'Mild NPDR' | 'No Apparent DR';
+  grade: number;
+  grade_label: string;
   confidence: number;
-  mode: string;
-};
+  recommendation_urgency: string;
+  recommendation_color: string;
+  refer: boolean;
+  facility_name: string;
+  screened_at: string;
+}
 
-const HISTORY: HistoryRow[] = [
-  { date: 'Oct 14, 2023', time: '10:45 AM', eye: 'Right (OD)', grade: 'Moderate NPDR', confidence: 98.2, mode: 'Color Fundus' },
-  { date: 'May 22, 2023', time: '02:15 PM', eye: 'Both (OU)', grade: 'Mild NPDR', confidence: 94.8, mode: 'Color Fundus' },
-  { date: 'Dec 08, 2022', time: '09:30 AM', eye: 'Left (OS)', grade: 'No Apparent DR', confidence: 99.1, mode: 'Color Fundus' },
-];
+function GradeBadge({ record }: { record: PatientScreening }) {
+  const color = record.recommendation_color;
+  return (
+    <Chip
+      label={record.grade_label}
+      size="small"
+      sx={{
+        height: 24,
+        fontWeight: 700,
+        borderRadius: '999px',
+        fontSize: '0.7rem',
+        bgcolor: `${color}15`,
+        color: color,
+        border: `1px solid ${color}30`,
+      }}
+    />
+  );
+}
 
-function gradeChip(grade: HistoryRow['grade']) {
-  const base = { height: 24, borderRadius: '999px', fontWeight: 700, fontSize: '0.7rem' };
-  if (grade === 'Moderate NPDR') return <Chip label={grade} size="small" sx={{ ...base, bgcolor: '#FFF0D9', color: '#B7791F' }} />;
-  if (grade === 'Mild NPDR') return <Chip label={grade} size="small" sx={{ ...base, bgcolor: '#E8F5EE', color: '#2E8B57' }} />;
-  return <Chip label={grade} size="small" sx={{ ...base, bgcolor: '#EDF2F0', color: '#1A6B3C' }} />;
+function MiniSummaryCard({ icon, label, value, subValue }: { icon: React.ReactNode; label: string; value: React.ReactNode; subValue?: React.ReactNode }) {
+  return (
+    <Card variant="outlined" sx={{ borderRadius: '10px', bgcolor: '#F9FBFA', border: '1px solid #E2E8F0' }}>
+      <CardContent className="p-4!">
+        <div className="flex items-center gap-3">
+          <div className="grid size-9 place-items-center rounded-md bg-[#EDF2F0] text-brand-green">
+            {icon}
+          </div>
+          <div className="flex-1">
+            <p className="text-[0.62rem] font-extrabold uppercase tracking-wider text-brand-muted">
+              {label}
+            </p>
+            <div className="flex items-end justify-between gap-1">
+              <div className="text-[1.2rem] font-bold text-brand-slate leading-tight">{value}</div>
+              {subValue && <div className="leading-tight">{subValue}</div>}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function NavItem({
@@ -69,87 +118,184 @@ function NavItem({
   );
 }
 
-function ProgressChart() {
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <Box sx={{ bgcolor: 'white', p: 1.5, border: '1px solid #E2E8F0', borderRadius: '8px', boxShadow: 2 }}>
+        <Typography variant="caption" sx={{ fontWeight: 800, display: 'block', mb: 0.5 }}>{label}</Typography>
+        <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', color: 'text.secondary' }}>
+          Result: {data.grade_label}
+        </Typography>
+        <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main', display: 'block' }}>
+          AI Confidence: {Math.round(data.confidence > 1 ? data.confidence : data.confidence * 100)}%
+        </Typography>
+      </Box>
+    );
+  }
+  return null;
+};
+
+function ProgressChart({ data }: { data: any[] }) {
+  const gradeLabels: Record<number, string> = {
+    0: 'No DR',
+    1: 'Mild',
+    2: 'Moderate',
+    3: 'Severe',
+    4: 'Prolif.'
+  };
+
   return (
-    <div className="relative h-[250px]">
-      <div className="absolute inset-0">
-        <svg viewBox="0 0 640 250" className="h-full w-full">
-          <line x1="50" y1="200" x2="620" y2="200" stroke="#E2E8F0" strokeDasharray="4 5" />
-          <line x1="50" y1="150" x2="620" y2="150" stroke="#E2E8F0" strokeDasharray="4 5" />
-          <line x1="50" y1="100" x2="620" y2="100" stroke="#E2E8F0" strokeDasharray="4 5" />
-          <line x1="50" y1="50" x2="620" y2="50" stroke="#E2E8F0" strokeDasharray="4 5" />
-
-          <polyline
-            points="100,165 340,120 580,80"
-            fill="none"
-            stroke="#1A6B3C"
-            strokeWidth="3"
-            strokeLinecap="round"
+    <div className="relative h-[280px] w-full mt-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 10, right: 40, left: 10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+          <XAxis 
+            dataKey="date" 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fill: '#718096', fontSize: 11, fontWeight: 600 }}
+            dy={10}
           />
-          <circle cx="100" cy="165" r="4" fill="#1A6B3C" />
-          <circle cx="340" cy="120" r="4" fill="#1A6B3C" />
-          <circle cx="580" cy="80" r="4" fill="#1A6B3C" />
-
-          <polyline
-            points="100,175 340,165 580,160"
-            fill="none"
-            stroke="#6B7280"
-            strokeWidth="2.5"
-            strokeDasharray="4 5"
-            strokeLinecap="round"
+          <YAxis 
+            domain={[0, 4]} 
+            ticks={[0, 1, 2, 3, 4]} 
+            axisLine={false} 
+            tickLine={false}
+            tick={{ fill: '#718096', fontSize: 10, fontWeight: 700 }}
+            tickFormatter={(val) => gradeLabels[val]}
           />
-          <circle cx="100" cy="175" r="3.5" fill="#6B7280" />
-          <circle cx="340" cy="165" r="3.5" fill="#6B7280" />
-          <circle cx="580" cy="160" r="3.5" fill="#6B7280" />
-        </svg>
-      </div>
-
-      <div className="pointer-events-none absolute left-0 top-[45px] space-y-[35px] text-[0.72rem] text-gray-500">
-        <div>Proliferative</div>
-        <div>Severe</div>
-        <div>Moderate</div>
-        <div>Mild</div>
-        <div>No DR</div>
-      </div>
-      <div className="pointer-events-none absolute bottom-0 left-[70px] right-[40px] flex justify-between text-[0.75rem] text-gray-500">
-        <span>Dec 2022</span>
-        <span>May 2023</span>
-        <span>Oct 2023</span>
-      </div>
+          <Tooltip content={<CustomTooltip />} />
+          <ReferenceLine 
+            y={2} 
+            stroke="#ED8936" 
+            strokeDasharray="4 4" 
+            label={{ value: 'Refer threshold', position: 'insideTopRight', fill: '#ED8936', fontSize: 10, fontWeight: 700 }} 
+          />
+          <ReferenceLine 
+            y={3} 
+            stroke="#E53E3E" 
+            strokeDasharray="4 4" 
+            label={{ value: 'Urgent', position: 'insideTopRight', fill: '#E53E3E', fontSize: 10, fontWeight: 700 }} 
+          />
+          <Line 
+            type="monotone" 
+            dataKey="grade" 
+            stroke="#1A6B3C" 
+            strokeWidth={3} 
+            dot={{ r: 5, fill: '#1A6B3C', strokeWidth: 2, stroke: '#fff' }} 
+            activeDot={{ r: 7, strokeWidth: 0 }} 
+            animationDuration={1500}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+      {data.length === 1 && (
+        <Box className="absolute inset-0 flex items-center justify-center bg-white/40 pointer-events-none">
+          <Typography variant="body2" sx={{ bgcolor: 'white', px: 2, py: 1, borderRadius: '8px', border: '1px solid #E2E8F0', fontStyle: 'italic', color: 'text.secondary', fontWeight: 600, boxShadow: 1 }}>
+            Screen this patient again to track progression over time
+          </Typography>
+        </Box>
+      )}
     </div>
   );
 }
 
 export default function PatientRecord() {
-  const { id } = useParams<{ id: string }>();
+  const { recordId } = useParams<{ recordId: string }>(); // Changed to recordId
+  const navigate = useNavigate(); // Added useNavigate
+  
+  const [records, setRecords] = useState<PatientScreening[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [patientName, setPatientName] = useState(''); // State to store patient name
+  
+  const [selectedRecordIdForPreview, setSelectedRecordIdForPreview] = useState<number | null>(null); // Renamed for clarity
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  
+  const { downloadPDF } = useDownloadPDF();
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!recordId) {
+        setError('Record ID is missing.');
+        setLoading(false);
+        navigate('/records', { replace: true }); // Redirect to records page
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // First, fetch the specific record to get the patient name
+        const singleRecordResponse = await api.get(`/api/records/${recordId}`);
+        const patientNameFromRecord = singleRecordResponse.data.patient_name;
+        setPatientName(patientNameFromRecord);
+
+        // Then, use that patient_name to fetch all their screenings
+        const allRecordsResponse = await api.get(`/api/records/patient/${encodeURIComponent(patientNameFromRecord)}`);
+        setRecords(allRecordsResponse.data.records);
+      } catch (err) {
+        setError('Failed to load patient history. Please check your connection or if the record exists.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, [recordId, navigate]); // Added recordId and navigate to dependencies
+
+  const chartData = useMemo(() => records.map(r => ({
+    date: dayjs(r.screened_at).format('D MMM'),
+    grade: r.grade,
+    grade_label: r.grade_label,
+    confidence: r.confidence,
+    eye: r.eye
+  })), [records]);
+
+  const latest = records.length > 0 ? records[records.length - 1] : null; // Handle case where records might be empty
+  const prev = records[records.length - 2];
+
+  const trend = useMemo(() => {
+    if (records.length <= 1) return { text: '— First screening', color: '#718096' };
+    if (latest.grade < prev.grade) return { text: '↓ Improving', color: '#1A6B3C' };
+    if (latest.grade > prev.grade) return { text: '↑ Worsening', color: '#C1121F' };
+    return { text: '→ Stable', color: '#718096' };
+  }, [records, latest, prev]);
+
+  const handleOpenPreview = (id: number | null) => { // Changed type to allow null
+    setSelectedRecordIdForPreview(id);
+    setIsPreviewOpen(true);
+  };
 
   return (
-    <Box className="w-full">
-      {/* The main content now takes full width */}
+    <Box className="w-full pb-20"> {/* Added pb-20 for consistent padding */}
+      <ScreeningReport
+        open={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        recordId={selectedRecordIdForPreview}
+      />
+
       <div className="grid grid-cols-1 gap-4">
-        {/* Main content */}
         <div className="space-y-4">
           <Card sx={{ borderRadius: '12px' }}>
             <CardContent className="flex flex-col gap-4 p-4! md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-4">
                 <Avatar src="/favicon.ico" sx={{ width: 54, height: 54 }} />
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
-                      Elena Rodriguez
+                  <div className="flex flex-wrap items-center gap-2"> 
+                    <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1.1 }}> 
+                      {patientName || (loading ? 'Loading Patient...' : 'N/A')} {/* Display patientName from state */}
                     </Typography>
                     <Chip
-                      label={`Patient ID: ${id ?? 'ER-4492'}`}
+                      label={`Patient ID: ${latest?.hospital_id || (loading ? '...' : 'N/A')}`} // Handle loading state
                       size="small"
                       sx={{ bgcolor: '#FFF7E6', color: '#8B6F22', fontWeight: 700 }}
                     />
                   </div>
                   <Typography variant="body1" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                    64 Years Old • Female • O- Positive
+                    {latest ? `${latest.patient_age} Years Old • ${latest.patient_sex}` : 'Loading profile...'}
                   </Typography>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 md:mt-0 mt-2">
                 <Button variant="outlined" startIcon={<EditIcon />} sx={{ textTransform: 'none', fontWeight: 700 }}>
                   Edit Profile
                 </Button>
@@ -170,7 +316,7 @@ export default function PatientRecord() {
                   ['Primary Diagnosis', 'Type 2 Diabetes'],
                   ['Diagnosis Date', 'Mar 2018'],
                   ['Latest HbA1c', '7.2%'],
-                  ['Last Screening', 'Oct 14, 2023'],
+                  ['Last Screening', latest ? dayjs(latest.screened_at).format('MMM D, YYYY') : (loading ? '...' : '—')], // Handle loading state
                 ].map(([k, v]) => (
                   <div key={k} className="flex items-center justify-between border-b border-[#EDF2F0] py-3 text-[1rem]">
                     <span className="text-brand-muted">{k}</span>
@@ -211,7 +357,39 @@ export default function PatientRecord() {
                     </div>
                   </div>
                 </div>
-                <ProgressChart />
+
+                <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <MiniSummaryCard 
+                    icon={<PatientsIcon fontSize="small" />} 
+                    label="Total Screenings" 
+                    value={loading ? '...' : records.length} 
+                  />
+                  <MiniSummaryCard 
+                    icon={<EyeIcon fontSize="small" />} 
+                    label="Latest Grade" 
+                    value={loading ? '...' : (latest ? <GradeBadge record={latest} /> : 'N/A')} // Handle null latest
+                  />
+                  <MiniSummaryCard 
+                    icon={<TrendIcon fontSize="small" />} 
+                    label="Trend" 
+                    value={loading ? '...' : trend.text.replace(/^[↓↑→—]\s*/, '')}
+                    subValue={!loading && (
+                      <Typography variant="caption" sx={{ color: trend.color, fontWeight: 800, fontSize: '0.65rem' }}>
+                        {trend.text}
+                      </Typography>
+                    )}
+                  />
+                </div>
+
+                {loading ? (
+                  <Box sx={{ height: 280, display: 'grid', placeItems: 'center' }}>
+                    <CircularProgress size={30} />
+                  </Box>
+                ) : error ? (
+                  <Typography color="error" sx={{ textAlign: 'center', py: 5 }}>{error}</Typography>
+                ) : records.length === 0 ? (
+                  <Typography sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>No screening data available for this patient.</Typography>
+                ) : <ProgressChart data={chartData} />}
               </CardContent>
             </Card>
           </div>
@@ -238,11 +416,34 @@ export default function PatientRecord() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {HISTORY.map((row) => (
-                      <TableRow key={`${row.date}-${row.time}`} hover>
+                    {loading ? (
+                      [...Array(3)].map((_, i) => ( // Show 3 skeleton rows
+                        <TableRow key={i}>
+                          {[...Array(6)].map((_, j) => ( // 6 columns
+                            <TableCell key={j}><Skeleton variant="text" /></TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : error ? (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                          <Typography color="error">{error}</Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : records.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
+                          <Typography variant="body1" sx={{ color: 'text.secondary', mb: 2 }}>
+                            No screening records found for this patient.
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      records.map((row) => (
+                      <TableRow key={row.id} hover>
                         <TableCell>
-                          <p className="font-semibold text-brand-slate">{row.date}</p>
-                          <p className="text-xs text-brand-muted">{row.time}</p>
+                          <p className="font-semibold text-brand-slate">{dayjs(row.screened_at).format('MMM D, YYYY')}</p>
+                          <p className="text-xs text-brand-muted">{dayjs(row.screened_at).format('h:mm A')}</p>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2 text-brand-slate">
@@ -250,36 +451,36 @@ export default function PatientRecord() {
                             {row.eye}
                           </div>
                         </TableCell>
-                        <TableCell>{gradeChip(row.grade)}</TableCell>
+                        <TableCell><GradeBadge record={row} /></TableCell>
                         <TableCell sx={{ minWidth: 180 }}>
                           <div className="flex items-center gap-2">
                             <LinearProgress
                               variant="determinate"
-                              value={row.confidence}
+                              value={row.confidence > 1 ? row.confidence : row.confidence * 100}
                               sx={{
                                 flex: 1,
                                 height: 6,
                                 borderRadius: 999,
                                 bgcolor: '#EDF2F0',
-                                '& .MuiLinearProgress-bar': { borderRadius: 999, bgcolor: 'primary.main' },
+                                '& .MuiLinearProgress-bar': { borderRadius: 999, bgcolor: row.recommendation_color },
                               }}
                             />
                             <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                              {row.confidence}%
+                              {Math.round(row.confidence > 1 ? row.confidence : row.confidence * 100)}%
                             </Typography>
                           </div>
                         </TableCell>
-                        <TableCell sx={{ color: 'text.secondary' }}>{row.mode}</TableCell>
+                        <TableCell sx={{ color: 'text.secondary' }}>Color Fundus</TableCell>
                         <TableCell>
-                          <IconButton size="small" sx={{ color: 'text.secondary' }} aria-label="Report">
+                          <IconButton size="small" sx={{ color: 'primary.main' }} aria-label="Report" onClick={() => handleOpenPreview(row.id)}>
                             <ReportIcon fontSize="small" />
                           </IconButton>
-                          <IconButton size="small" sx={{ color: 'text.secondary' }} aria-label="Download">
+                          <IconButton size="small" sx={{ color: 'text.secondary' }} aria-label="Download" onClick={() => downloadPDF(row.id)}>
                             <DownloadIcon fontSize="small" />
                           </IconButton>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )))}
                   </TableBody>
                 </Table>
               </Box>

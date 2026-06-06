@@ -39,7 +39,7 @@ import {
   ShieldOutlined as ShieldIcon,
   TrendingUpOutlined as TrendingUpIcon,
 } from '@mui/icons-material';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -138,6 +138,7 @@ function SummaryCard({
 
 export default function Records() {
   // --- State ---
+  const navigate = useNavigate();
   const [records, setRecords] = useState<ScreeningRecord[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -195,6 +196,10 @@ export default function Records() {
     setSelectedRecordId(id);
     setIsPreviewOpen(true);
   };
+
+  const handleViewRecordById = (recordId: number) => {
+    navigate(`/patients/${recordId}`);
+  }
 
   return (
     <Box className="relative w-full pb-20">
@@ -398,20 +403,21 @@ export default function Records() {
                   records.map((row) => (
                     <TableRow key={row.id} hover>
                       <TableCell sx={{ color: '#718096', fontWeight: 600 }}>#RS{row.id}</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>{row.patient_name}</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>
-                        <Link 
-                          to={`/history/${encodeURIComponent(row.patient_name)}`} 
-                          style={{ textDecoration: 'none', color: 'inherit' }}
-                          className="hover:underline cursor-pointer"
+                        <Box 
+                          onClick={() => handleViewRecordById(row.id)}
+                          sx={{
+                            cursor: 'pointer', 
+                            '&:hover': { textDecoration: 'underline' } 
+                          }}
                         >
                           {row.patient_name}
-                        </Link>
+                        </Box>
                       </TableCell>
                       <TableCell sx={{ color: 'text.secondary' }}>{dayjs(row.screened_at).format('DD MMM YYYY')}</TableCell>
                       <TableCell>
                         <Chip
-                          label={row.eye}
+                          label={row.eye === 'Left' ? 'L' : 'R'}
                           size="small"
                           sx={{
                             height: 24,
@@ -456,9 +462,7 @@ export default function Records() {
                       <TableCell align="right">
                         <IconButton
                           size="small"
-                          component={Link}
-                          to={`/records/${row.id}`}
-                          to={`/history/${encodeURIComponent(row.patient_name)}`}
+                          onClick={() => handleViewRecordById(row.id)}
                           sx={{ color: 'primary.main' }}
                           aria-label="View record"
                         >

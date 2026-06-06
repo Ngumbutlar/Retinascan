@@ -24,7 +24,7 @@ export default function App() {
           <Route path="/new-screening" element={<NewScreening />} />
           <Route path="/results" element={<Results />} />
           <Route path="/records" element={<Records />} />
-          <Route path="/records/:id" element={<PatientRecord />} />
+          <Route path="/patients/:recordId" element={<PatientRecord />} />
         </Route>
       </Route>
 
