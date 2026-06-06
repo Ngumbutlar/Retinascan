@@ -9,6 +9,7 @@ import {
   IconButton,
   LinearProgress,
   Paper,
+  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -24,72 +25,28 @@ import {
   RemoveRedEyeOutlined as EyeIcon,
   TrendingUpOutlined as TrendingUpIcon,
 } from '@mui/icons-material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import * as authService from '../services/authService';
+import api from '../services/api';
+import dayjs from 'dayjs';
+import { useDownloadPDF } from '../hooks/useDownloadPDF';
+import type { DashboardStats } from '../types/screening';
 
-type ScreeningRow = {
-  patientName: string;
-  date: string;
-  time: string;
-  eye: 'OD' | 'OS' | 'OU';
-  grade: 'No DR Detected' | 'Mild NPDR' | 'Moderate NPDR' | 'Severe NPDR' | 'PDR';
-};
-
-const SCREENINGS: ScreeningRow[] = [
-  { patientName: 'Elena Rodriguez', date: '23 Oct 2023', time: '10:15', eye: 'OD', grade: 'No DR Detected' },
-  { patientName: 'Arthur Morgan', date: '23 Oct 2023', time: '09:45', eye: 'OS', grade: 'Moderate NPDR' },
-  { patientName: 'Sarah Jenkins', date: '23 Oct 2023', time: '09:10', eye: 'OU', grade: 'Mild NPDR' },
-  { patientName: 'James Wilson', date: '22 Oct 2023', time: '16:30', eye: 'OD', grade: 'Severe NPDR' },
-  { patientName: 'Maya Patel', date: '22 Oct 2023', time: '15:20', eye: 'OS', grade: 'No DR Detected' },
-];
-
-const gradeChip = (grade: ScreeningRow['grade']) => {
-  const baseSx = { height: 26, fontWeight: 600, borderRadius: '999px' };
-
-  switch (grade) {
-    case 'No DR Detected':
-      return (
-        <Chip
-          label={grade}
-          size="small"
-          sx={{ ...baseSx, bgcolor: '#E8F5EE', color: '#1A6B3C' }}
-        />
-      );
-    case 'Mild NPDR':
-      return (
-        <Chip
-          label={grade}
-          size="small"
-          sx={{ ...baseSx, bgcolor: '#E6F4EA', color: '#2E8B57' }}
-        />
-      );
-    case 'Moderate NPDR':
-      return (
-        <Chip
-          label={grade}
-          size="small"
-          sx={{ ...baseSx, bgcolor: '#FFF7E6', color: '#B7791F' }}
-        />
-      );
-    case 'Severe NPDR':
-      return (
-        <Chip
-          label={grade}
-          size="small"
-          sx={{ ...baseSx, bgcolor: '#FFE8EA', color: '#C1121F' }}
-        />
-      );
-    case 'PDR':
-      return (
-        <Chip
-          label={grade}
-          size="small"
-          sx={{ ...baseSx, bgcolor: '#FFE8EA', color: '#C1121F' }}
-        />
-      );
-    default:
-      return <Chip label={grade} size="small" sx={baseSx} />;
-  }
+const gradeChip = (label: string, color: string) => {
+  return (
+    <Chip
+      label={label}
+      size="small"
+      sx={{ 
+        height: 26, 
+        fontWeight: 700, 
+        borderRadius: '999px',
+        bgcolor: `${color}15`,
+        color: color,
+        border: `1px solid ${color}30`,
+      }}
+    />
+  );
 };
 
 function StatCard({
@@ -97,11 +54,13 @@ function StatCard({
   iconBg,
   label,
   value,
+  loading,
 }: {
   icon: React.ReactNode;
   iconBg: string;
   label: string;
-  value: string;
+  value: string | number | undefined;
+  loading?: boolean;
 }) {
   return (
     <Card className="rounded-xl">
@@ -121,9 +80,13 @@ function StatCard({
           >
             {label}
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.25 }}>
-            {value}
-          </Typography>
+          {loading ? (
+            <Skeleton width={60} height={32} sx={{ mt: 0.25 }} />
+          ) : (
+            <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.25 }}>
+              {value ?? 0}
+            </Typography>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -167,16 +130,44 @@ function GradeRow({
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const { downloadPDF } = useDownloadPDF();
+  const [stats, setStats] = React.useState<DashboardStats | null>(null);
+  const [recentScreenings, setRecentScreenings] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await api.get('/api/dashboard/stats');
+      setStats(response.data.stats);
+      setRecentScreenings(response.data.recent_screenings);
+    } catch (err) {
+      console.error('Error fetching dashboard stats:', err);
+      setError('Failed to load clinical data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const user = authService.getCurrentUser();
+
   return (
     <Box className="w-full">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Welcome, Dr. Samuel Akon
+            Welcome, {user?.name || 'Doctor'}
           </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.75 }}>
-            Monday, October 23, 2023
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.75, textTransform: 'capitalize' }}>
+            {dayjs().format('dddd, MMMM D, YYYY')}
           </Typography>
           
           {/* Temporary debug button to verify auth storage */}
@@ -217,19 +208,22 @@ export default function Dashboard() {
           icon={<EyeIcon sx={{ color: 'primary.main' }} />}
           iconBg="#E8F5EE"
           label="Screenings today"
-          value="24"
+          value={stats?.screenings_today}
+          loading={loading}
         />
         <StatCard
           icon={<TrendingUpIcon sx={{ color: 'primary.main' }} />}
           iconBg="#E8F5EE"
           label="This month"
-          value="582"
+          value={stats?.screenings_this_month}
+          loading={loading}
         />
         <StatCard
           icon={<BarChartIcon sx={{ color: '#B7791F' }} />}
           iconBg="#FFF7E6"
           label="Referrals generated"
-          value="18"
+          value={stats?.referrals_generated}
+          loading={loading}
         />
       </div>
 
@@ -308,28 +302,49 @@ export default function Dashboard() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {SCREENINGS.map((row) => (
-                    <TableRow key={`${row.patientName}-${row.date}-${row.time}`} hover>
-                      <TableCell sx={{ fontWeight: 700 }}>
-                        {row.patientName.split(' ').slice(0, 1).join(' ')}
-                        <div className="font-bold">{row.patientName.split(' ').slice(1).join(' ')}</div>
-                      </TableCell>
-                      <TableCell sx={{ color: 'text.secondary' }}>
-                        {row.date}
-                        <div>{row.time}</div>
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>{row.eye}</TableCell>
-                      <TableCell>{gradeChip(row.grade)}</TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" sx={{ color: 'primary.main' }} aria-label="View">
-                          <EyeIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton size="small" sx={{ color: 'primary.main' }} aria-label="Download">
-                          <DownloadIcon fontSize="small" />
-                        </IconButton>
+                  {loading ? (
+                    [...Array(5)].map((_, i) => (
+                      <TableRow key={i}>
+                        {[...Array(5)].map((_, j) => (
+                          <TableCell key={j}><Skeleton variant="text" /></TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : error ? (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                        <Typography color="error">{error}</Typography>
+                        <Button size="small" onClick={fetchDashboardData}>Retry</Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    recentScreenings.map((row) => (
+                      <TableRow key={row.id} hover>
+                        <TableCell sx={{ fontWeight: 700 }}>
+                          {row.patient_name}
+                        </TableCell>
+                        <TableCell sx={{ color: 'text.secondary' }}>
+                          {dayjs(row.screened_at).format('DD MMM YYYY')}
+                          <div>{dayjs(row.screened_at).format('HH:mm')}</div>
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>{row.eye === 'Left' ? 'OS' : row.eye === 'Right' ? 'OD' : 'OU'}</TableCell>
+                        <TableCell>{gradeChip(row.grade_label, row.recommendation_color)}</TableCell>
+                        <TableCell align="right">
+                          <IconButton 
+                            size="small" 
+                            sx={{ color: 'primary.main' }} 
+                            aria-label="View"
+                            onClick={() => navigate(`/patients/${row.id}`)}
+                          >
+                            <EyeIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" sx={{ color: 'primary.main' }} aria-label="Download" onClick={() => downloadPDF(row.id)}>
+                            <DownloadIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </Box>
@@ -354,17 +369,29 @@ export default function Dashboard() {
                   textTransform: 'uppercase',
                 }}
               >
-                Month: October 2023
+                Month: {dayjs().format('MMMM YYYY')}
               </Typography>
             </div>
             <Divider />
 
             <div className="space-y-5 px-6 py-5">
-              <GradeRow label="No DR Detected" pct={65} barColor="#1A6B3C" />
-              <GradeRow label="Mild NPDR" pct={18} barColor="#2E8B57" />
-              <GradeRow label="Moderate NPDR" pct={12} barColor="#C9A84C" />
-              <GradeRow label="Severe NPDR" pct={4} barColor="#C1121F" />
-              <GradeRow label="PDR" pct={1} barColor="#8B0000" />
+              {loading ? (
+                [...Array(5)].map((_, i) => <Skeleton key={i} height={40} />)
+              ) : (
+                <>
+                  {Object.entries({
+                    'No DR': '#1A6B3C',
+                    'Mild': '#2E8B57',
+                    'Moderate': '#C9A84C',
+                    'Severe': '#C1121F',
+                    'Proliferative': '#8B0000'
+                  }).map(([label, color]) => {
+                    const count = stats?.grade_distribution[label] || 0;
+                    const pct = stats?.screenings_total ? Math.round((count / stats.screenings_total) * 100) : 0;
+                    return <GradeRow key={label} label={label} pct={pct} barColor={color} />;
+                  })}
+                </>
+              )}
             </div>
 
             <div className="px-6 pb-6">
