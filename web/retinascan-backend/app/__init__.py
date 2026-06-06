@@ -20,10 +20,10 @@ def create_app(config_class=Config):
     # Allow Vite dev server; Content-Type covers multipart/form-data (with boundary)
     cors.init_app(app, resources={
         r"/*": {
-            "origins": ["http://localhost:5173"],
+            "origins": "http://localhost:5173",
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
-            "expose_headers": ["Content-Type"],
+            "supports_credentials": True
         }
     })
 
@@ -33,19 +33,14 @@ def create_app(config_class=Config):
     from app.routes.facility import facility_bp
     from app.routes.screening import new_screening_bp
     from app.routes.predict import predict_bp
-
-    # Ensure these exist in your routes directory
-    try:
-        from app.routes.records import records_bp
-        app.register_blueprint(records_bp, url_prefix='/records')
-    except ImportError:
-        pass
+    from app.routes.records import records_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(facility_bp, url_prefix='/auth/facilities')
     app.register_blueprint(health_bp)
     app.register_blueprint(new_screening_bp, url_prefix='/api')
     app.register_blueprint(predict_bp)
+    app.register_blueprint(records_bp, url_prefix='/api')
 
     # Step 3: Initialise Swagger LAST
     swagger_config = {

@@ -1,7 +1,10 @@
 import logging
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 from app.services.model_service import predict
+from app.routes.records import records_bp
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -9,8 +12,22 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Enable CORS to allow the React frontend to communicate with this API
-CORS(app)
+# JWT Configuration - Required for @jwt_required() decorators in routes
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "dev-secret-key")
+jwt = JWTManager(app)
+
+# Enable CORS with specific support for the frontend origin and credentials
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})
+
+# Handle OPTIONS preflight requests explicitly.
+# This ensures preflight requests (which don't carry JWTs) aren't blocked by auth decorators.
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        return jsonify(success=True), 200
+
+# Register clinical records blueprint
+app.register_blueprint(records_bp)
 
 @app.route('/api/new-screening', methods=['POST'])
 def analyze_screening():

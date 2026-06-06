@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from app import db
+from app.models.facility import Facility
 
 class ScreeningRecord(db.Model):
     """
@@ -17,6 +18,7 @@ class ScreeningRecord(db.Model):
     
     # Foreign Keys (Assumes facility and user tables exist)
     facility_id = db.Column(db.Integer, db.ForeignKey('facilities.id'), nullable=True)
+    facility = db.relationship('Facility', backref='screenings', lazy=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     # Inference Results
