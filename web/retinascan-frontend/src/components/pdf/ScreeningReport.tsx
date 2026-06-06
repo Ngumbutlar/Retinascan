@@ -7,6 +7,8 @@ import {
   LinearProgress,
   Modal,
   Typography,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -14,12 +16,14 @@ import {
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import type { ResultsLocationState } from '../../types/screening';
+import api from '../../services/api';
+import { useDownloadPDF } from '../../hooks/useDownloadPDF';
 
 export interface ScreeningReportProps {
   open: boolean;
   onClose: () => void;
-  data: ResultsLocationState;
-  onDownloadPdf?: () => void;
+  data?: ResultsLocationState;
+  recordId?: number | null;
 }
 
 function SectionLabel({ children }: { children: string }) {
@@ -112,21 +116,62 @@ export default function ScreeningReport({
   open,
   onClose,
   data,
-  onDownloadPdf,
+  recordId,
 }: ScreeningReportProps) {
-  const { record_id, patient, result, recommendation, screened_at, fundus_image_preview } =
-    data;
-  const { grade, grade_label, confidence } = result;
-  const screenedDate = dayjs(screened_at);
-  const confidencePct = confidence <= 1 ? confidence * 100 : confidence;
-  const edemaRisk = macularEdemaRiskPct(grade);
-  const biomarkers = getBiomarkers(grade);
-  const gradeColor = recommendation.color;
-  const approxDob = screenedDate.subtract(patient.age, 'year').format('D MMM YYYY');
-  const patientId = patient.hospital_id?.replace(/^#/, '') || `RS-${record_id}`;
+  const [fetchedData, setFetchedData] = React.useState<ResultsLocationState | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [fetchError, setFetchError] = React.useState('');
+  const { downloadPDF, downloading } = useDownloadPDF();
+
+  const displayData = data || fetchedData;
+
+  React.useEffect(() => {
+    if (open && recordId && !data) {
+      const fetchRecord = async () => {
+        setLoading(true);
+        setFetchError('');
+        try {
+          const response = await api.get(`/api/records/${recordId}`);
+          const fetched = response.data;
+          
+          // Map backend record to ResultsLocationState structure
+          const mapped: ResultsLocationState = {
+            record_id: fetched.id,
+            patient: {
+              name: fetched.patient_name,
+              age: fetched.patient_age,
+              sex: fetched.patient_sex,
+              hospital_id: fetched.hospital_id,
+              eye: fetched.eye,
+            },
+            result: {
+              grade: fetched.grade,
+              grade_label: fetched.grade_label,
+              confidence: fetched.confidence,
+              probabilities: fetched.probabilities,
+            },
+            recommendation: fetched.recommendation,
+            screened_at: fetched.created_at,
+            fundus_image_preview: fetched.image_url || `/api/images/${fetched.image_filename}`,
+          };
+          setFetchedData(mapped);
+        } catch (err) {
+          setFetchError('Failed to load record details.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchRecord();
+    } else if (!open) {
+      setFetchedData(null);
+      setFetchError('');
+    }
+  }, [open, recordId, data]);
 
   const handleDownload = () => {
-    if (onDownloadPdf) onDownloadPdf();
+    if (displayData?.record_id) {
+      downloadPDF(displayData.record_id);
+    }
   };
 
   return (
@@ -135,15 +180,27 @@ export default function ScreeningReport({
       onClose={onClose}
       sx={{
         display: 'flex',
-        flexDirection: 'column',
-        bgcolor: 'rgba(15, 23, 42, 0.88)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: { xs: 1, sm: 2 },
       }}
     >
-      <React.Fragment>
+      <Box sx={{
+        bgcolor: 'background.paper',
+        width: '100%',
+        maxWidth: '1000px',
+        maxHeight: '90vh',
+        borderRadius: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        boxShadow: 24,
+        outline: 'none',
+      }}>
         {/* Top bar */}
-        <Box className="flex shrink-0 items-center justify-between px-4 py-3 sm:px-8">
+        <Box sx={{ borderBottom: '1px solid #E2E8F0', px: { xs: 2, sm: 4 }, py: 2 }} className="flex shrink-0 items-center justify-between">
           <div className="flex items-center gap-3">
-            <Typography variant="h6" sx={{ fontWeight: 600, color: '#fff' }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
               Report Preview
             </Typography>
             <Chip
@@ -151,8 +208,8 @@ export default function ScreeningReport({
               size="small"
               sx={{
                 height: 24,
-                bgcolor: 'rgba(255,255,255,0.12)',
-                color: '#E2E8F0',
+                bgcolor: 'rgba(0,0,0,0.06)',
+                color: 'text.secondary',
                 fontWeight: 700,
                 fontSize: '0.7rem',
               }}
@@ -161,16 +218,16 @@ export default function ScreeningReport({
           <div className="flex items-center gap-2">
             <Button
               variant="contained"
-              startIcon={<DownloadIcon />}
+              startIcon={downloading ? <CircularProgress size={18} color="inherit" /> : <DownloadIcon />}
               onClick={handleDownload}
+              disabled={downloading || loading || !displayData}
               sx={{
-                bgcolor: '#fff',
-                color: '#1A202C',
+                bgcolor: 'primary.main',
+                color: '#fff',
                 fontWeight: 700,
                 textTransform: 'none',
                 borderRadius: '8px',
                 boxShadow: 'none',
-                '&:hover': { bgcolor: '#F1F5F9' },
               }}
             >
               Download PDF
@@ -179,10 +236,10 @@ export default function ScreeningReport({
               onClick={onClose}
               aria-label="Close report preview"
               sx={{
-                bgcolor: '#1E293B',
-                color: '#fff',
+                bgcolor: '#F1F5F9',
+                color: 'text.secondary',
                 borderRadius: '8px',
-                '&:hover': { bgcolor: '#334155' },
+                '&:hover': { bgcolor: '#E2E8F0' },
               }}
             >
               <CloseIcon />
@@ -191,206 +248,124 @@ export default function ScreeningReport({
         </Box>
 
         {/* Scrollable report */}
-        <Box className="flex flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-8">
-          <Box className="my-2 w-full max-w-4xl rounded-xl bg-white p-6 shadow-2xl sm:p-10">
-            {/* Report header */}
-            <div className="mb-8 flex flex-col gap-4 border-b border-[#E8EDEA] pb-6 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <Typography
-                  variant="h5"
-                  sx={{ fontWeight: 800, color: 'primary.main', lineHeight: 1.2 }}
-                >
-                  RetinaScan
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: 'block',
-                    mt: 0.5,
-                    fontWeight: 700,
-                    letterSpacing: '0.14em',
-                    color: 'text.secondary',
-                  }}
-                >
-                  Advanced AI Ophthalmic Analysis
-                </Typography>
-              </div>
-              <div className="text-left sm:text-right">
-                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                  Diagnostic Report #RS-{record_id}
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Generated: {screenedDate.format('MMM D, YYYY • h:mm A')}
-                </Typography>
-              </div>
-            </div>
-
-            {/* Patient information */}
-            <SectionLabel>Patient Information</SectionLabel>
-            <Box
-              className="mb-8 grid grid-cols-1 gap-4 rounded-lg bg-[#F8FAFC] p-4 sm:grid-cols-2 lg:grid-cols-4"
-              sx={{ border: '1px solid #E2E8F0' }}
-            >
-              <PatientField label="Full Name" value={patient.name} />
-              <PatientField label="Patient ID" value={patientId} />
-              <PatientField label="Date of Birth" value={approxDob} />
-              <PatientField label="Eye Examined" value={formatEyeReport(patient.eye)} />
+        <Box sx={{ bgcolor: '#F8FAFC' }} className="flex flex-1 justify-center overflow-y-auto px-4 pb-8 sm:px-8">
+          {loading ? (
+            <Box sx={{ py: 20, display: 'flex', justifyContent: 'center', width: '100%' }}>
+              <CircularProgress color="primary" />
             </Box>
+          ) : fetchError ? (
+            <Box className="my-2 w-full max-w-4xl rounded-xl bg-white p-6 shadow-2xl">
+              <Alert severity="error">{fetchError}</Alert>
+            </Box>
+          ) : displayData ? (() => {
+            const { record_id, patient, result, recommendation, screened_at, fundus_image_preview } = displayData;
+            const { grade, grade_label, confidence } = result;
+            const screenedDate = dayjs(screened_at);
+            const confidencePct = confidence <= 1 ? confidence * 100 : confidence;
+            const edemaRisk = macularEdemaRiskPct(grade);
+            const biomarkers = getBiomarkers(grade);
+            const gradeColor = recommendation.color;
+            const patientId = patient.hospital_id?.replace(/^#/, '') || `RS-${record_id}`;
 
-            {/* Two-column analysis */}
-            <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
-              <div>
-                <SectionLabel>Primary Fundus Capture</SectionLabel>
-                <div className="relative overflow-hidden rounded-lg bg-black">
-                  <img
-                    src={fundus_image_preview}
-                    alt="Primary fundus capture"
-                    className="block aspect-square w-full object-cover"
-                  />
-                  <FundusOverlays />
-                </div>
-              </div>
-
-              <div>
-                <SectionLabel>AI Analysis Summary</SectionLabel>
-
-                <Box
-                  className="mb-5 rounded-lg p-4"
-                  sx={{
-                    bgcolor: `${gradeColor}18`,
-                    border: `1px solid ${gradeColor}55`,
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      display: 'block',
-                      mb: 0.75,
-                      fontWeight: 800,
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                      color: gradeColor,
-                    }}
-                  >
-                    Diabetic Retinopathy Grade
-                  </Typography>
-                  <Typography
-                    variant="h5"
-                    sx={{ fontWeight: 800, color: gradeColor, lineHeight: 1.2 }}
-                  >
-                    {recommendation.severity || grade_label}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{ mt: 1, color: gradeColor, lineHeight: 1.55, opacity: 0.95 }}
-                  >
-                    {gradeDescription(grade, recommendation.severity)}
-                  </Typography>
-                </Box>
-
-                <div className="mb-4">
-                  <div className="mb-1 flex items-center justify-between">
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      Detection Confidence
+            return (
+              <Box className="my-2 w-full max-w-4xl rounded-xl bg-white p-6 shadow-2xl sm:p-10">
+                {/* Report header */}
+                <div className="mb-8 flex flex-col gap-4 border-b border-[#E8EDEA] pb-6 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', lineHeight: 1.2 }}>
+                      RetinaScan
                     </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                      {confidencePct.toFixed(1)}%
+                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: 700, letterSpacing: '0.14em', color: 'text.secondary' }}>
+                      Advanced AI Ophthalmic Analysis
                     </Typography>
                   </div>
-                  <LinearProgress
-                    variant="determinate"
-                    value={Math.min(confidencePct, 100)}
-                    sx={{
-                      height: 8,
-                      borderRadius: 999,
-                      bgcolor: '#EDF2F0',
-                      '& .MuiLinearProgress-bar': {
-                        borderRadius: 999,
-                        bgcolor: 'primary.main',
-                      },
-                    }}
-                  />
-                </div>
-
-                <div className="mb-6">
-                  <div className="mb-1 flex items-center justify-between">
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      Macular Edema Risk
+                  <div className="text-left sm:text-right">
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                      Diagnostic Report #RS-{record_id}
                     </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 800, color: '#B7791F' }}>
-                      {edemaRisk.toFixed(1)}%
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      Generated: {screenedDate.format('MMM D, YYYY • h:mm A')}
                     </Typography>
                   </div>
-                  <LinearProgress
-                    variant="determinate"
-                    value={edemaRisk}
-                    sx={{
-                      height: 8,
-                      borderRadius: 999,
-                      bgcolor: '#EDF2F0',
-                      '& .MuiLinearProgress-bar': {
-                        borderRadius: 999,
-                        bgcolor: '#E76F51',
-                      },
-                    }}
-                  />
                 </div>
 
-                <SectionLabel>Recommendation</SectionLabel>
-                <Box
-                  className="rounded-lg px-4 py-3"
-                  sx={{
-                    bgcolor: '#F1F5F9',
-                    borderLeft: '4px solid',
-                    borderLeftColor: 'primary.main',
-                  }}
-                >
-                  <Typography
-                    variant="body2"
-                    sx={{ fontStyle: 'italic', lineHeight: 1.65, color: 'text.primary' }}
-                  >
-                    &ldquo;{recommendation.action}&rdquo;
-                  </Typography>
-                  <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: 'text.secondary' }}>
-                    Follow-up: {recommendation.followup}
-                    {recommendation.refer ? ' • Ophthalmologist referral required' : ''}
-                  </Typography>
+                {/* Patient information */}
+                <SectionLabel>Patient Information</SectionLabel>
+                <Box className="mb-8 grid grid-cols-1 gap-4 rounded-lg bg-[#F8FAFC] p-4 sm:grid-cols-2 lg:grid-cols-4" sx={{ border: '1px solid #E2E8F0' }}>
+                  <PatientField label="Full Name" value={patient.name} />
+                  <PatientField label="Patient ID" value={patientId} />
+                  <PatientField label="Age" value={`${patient.age} Years`} />
+                  <PatientField label="Eye Examined" value={formatEyeReport(patient.eye)} />
                 </Box>
-              </div>
-            </div>
 
-            {/* Biomarker findings */}
-            <SectionLabel>Biomarker Findings</SectionLabel>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {biomarkers.map((item) => (
-                <Box
-                  key={item.label}
-                  className="rounded-lg px-4 py-3"
-                  sx={{
-                    border: '1px solid #E2E8F0',
-                    bgcolor: item.detected ? '#F9FBFA' : '#fff',
-                  }}
-                >
-                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                    {item.label}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      fontWeight: 800,
-                      letterSpacing: '0.06em',
-                      textTransform: 'uppercase',
-                      color: item.detected ? 'primary.main' : 'text.secondary',
-                    }}
-                  >
-                    {item.detected ? 'Detected' : 'Not detected'}
-                  </Typography>
-                </Box>
-              ))}
-            </div>
-          </Box>
+                {/* Two-column analysis */}
+                <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
+                  <div>
+                    <SectionLabel>Primary Fundus Capture</SectionLabel>
+                    <div className="relative overflow-hidden rounded-lg bg-black">
+                      <img src={fundus_image_preview} alt="Primary fundus capture" className="block aspect-square w-full object-cover" />
+                      <FundusOverlays />
+                    </div>
+                  </div>
+
+                  <div>
+                    <SectionLabel>AI Analysis Summary</SectionLabel>
+                    <Box className="mb-5 rounded-lg p-4" sx={{ bgcolor: `${gradeColor}18`, border: `1px solid ${gradeColor}55` }}>
+                      <Typography variant="caption" sx={{ display: 'block', mb: 0.75, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: gradeColor }}>
+                        Diabetic Retinopathy Grade
+                      </Typography>
+                      <Typography variant="h5" sx={{ fontWeight: 800, color: gradeColor, lineHeight: 1.2 }}>
+                        {recommendation.severity || grade_label}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1, color: gradeColor, lineHeight: 1.55, opacity: 0.95 }}>
+                        {gradeDescription(grade, recommendation.severity)}
+                      </Typography>
+                    </Box>
+
+                    <div className="mb-4">
+                      <div className="mb-1 flex items-center justify-between">
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>Detection Confidence</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 800, color: 'primary.main' }}>{confidencePct.toFixed(1)}%</Typography>
+                      </div>
+                      <LinearProgress variant="determinate" value={Math.min(confidencePct, 100)} sx={{ height: 8, borderRadius: 999, bgcolor: '#EDF2F0', '& .MuiLinearProgress-bar': { borderRadius: 999, bgcolor: 'primary.main' } }} />
+                    </div>
+
+                    <div className="mb-6">
+                      <div className="mb-1 flex items-center justify-between">
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>Macular Edema Risk</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 800, color: '#B7791F' }}>{edemaRisk.toFixed(1)}%</Typography>
+                      </div>
+                      <LinearProgress variant="determinate" value={edemaRisk} sx={{ height: 8, borderRadius: 999, bgcolor: '#EDF2F0', '& .MuiLinearProgress-bar': { borderRadius: 999, bgcolor: '#E76F51' } }} />
+                    </div>
+
+                    <SectionLabel>Recommendation</SectionLabel>
+                    <Box className="rounded-lg px-4 py-3" sx={{ bgcolor: '#F1F5F9', borderLeft: '4px solid', borderLeftColor: 'primary.main' }}>
+                      <Typography variant="body2" sx={{ fontStyle: 'italic', lineHeight: 1.65, color: 'text.primary' }}>&ldquo;{recommendation.action}&rdquo;</Typography>
+                      <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: 'text.secondary' }}>
+                        Follow-up: {recommendation.followup}
+                        {recommendation.refer ? ' • Ophthalmologist referral required' : ''}
+                      </Typography>
+                    </Box>
+                  </div>
+                </div>
+
+                {/* Biomarker findings */}
+                <SectionLabel>Biomarker Findings</SectionLabel>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {biomarkers.map((item) => (
+                    <Box key={item.label} className="rounded-lg px-4 py-3" sx={{ border: '1px solid #E2E8F0', bgcolor: item.detected ? '#F9FBFA' : '#fff' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.label}</Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: item.detected ? 'primary.main' : 'text.secondary' }}>
+                        {item.detected ? 'Detected' : 'Not detected'}
+                      </Typography>
+                    </Box>
+                  ))}
+                </div>
+              </Box>
+            );
+          })() : null}
         </Box>
-      </React.Fragment>
+      </Box>
     </Modal>
   );
 }

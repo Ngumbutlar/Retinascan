@@ -27,6 +27,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
+import ScreeningReport from '../components/pdf/ScreeningReport';
 import {
   AddAPhotoOutlined as CameraFabIcon,
   BarChartOutlined as BarChartIcon,
@@ -142,6 +143,8 @@ export default function Records() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     grade: '',
@@ -188,26 +191,18 @@ export default function Records() {
   }, [currentPage, filters]);
 
   // --- Handlers ---
-  const handleDownloadPDF = async (record_id: number) => {
-    try {
-      const response = await api.get(`/api/records/${record_id}/pdf`, { responseType: 'blob' });
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `RetinaScan-RS${record_id}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      toast.success('Report downloaded');
-    } catch (error) {
-      toast.error('Failed to download report');
-    }
+  const handleOpenPreview = (id: number) => {
+    setSelectedRecordId(id);
+    setIsPreviewOpen(true);
   };
 
   return (
     <Box className="relative w-full pb-20">
+      <ScreeningReport
+        open={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        recordId={selectedRecordId}
+      />
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
@@ -404,6 +399,15 @@ export default function Records() {
                     <TableRow key={row.id} hover>
                       <TableCell sx={{ color: '#718096', fontWeight: 600 }}>#RS{row.id}</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>{row.patient_name}</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>
+                        <Link 
+                          to={`/history/${encodeURIComponent(row.patient_name)}`} 
+                          style={{ textDecoration: 'none', color: 'inherit' }}
+                          className="hover:underline cursor-pointer"
+                        >
+                          {row.patient_name}
+                        </Link>
+                      </TableCell>
                       <TableCell sx={{ color: 'text.secondary' }}>{dayjs(row.screened_at).format('DD MMM YYYY')}</TableCell>
                       <TableCell>
                         <Chip
@@ -454,6 +458,7 @@ export default function Records() {
                           size="small"
                           component={Link}
                           to={`/records/${row.id}`}
+                          to={`/history/${encodeURIComponent(row.patient_name)}`}
                           sx={{ color: 'primary.main' }}
                           aria-label="View record"
                         >
@@ -463,7 +468,7 @@ export default function Records() {
                           size="small" 
                           sx={{ color: 'text.secondary' }} 
                           aria-label="Download PDF"
-                          onClick={() => handleDownloadPDF(row.id)}
+                          onClick={() => handleOpenPreview(row.id)}
                         >
                           <PdfIcon fontSize="small" />
                         </IconButton>
