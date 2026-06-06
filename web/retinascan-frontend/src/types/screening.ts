@@ -69,3 +69,11 @@ export const SEVERITY_SCALE_COLORS = [
   '#E76F51',
   '#C1121F',
 ] as const;
+
+export interface DashboardStats {
+  screenings_today: number;
+  screenings_this_month: number;
+  screenings_total: number;
+  referrals_generated: number;
+  grade_distribution: Record<string, number>;
+}

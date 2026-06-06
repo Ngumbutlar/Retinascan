@@ -34,6 +34,7 @@ def create_app(config_class=Config):
     from app.routes.screening import new_screening_bp
     from app.routes.predict import predict_bp
     from app.routes.records import records_bp
+    from app.routes.dashboard import dashboard_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(facility_bp, url_prefix='/auth/facilities')
@@ -41,6 +42,7 @@ def create_app(config_class=Config):
     app.register_blueprint(new_screening_bp, url_prefix='/api')
     app.register_blueprint(predict_bp)
     app.register_blueprint(records_bp, url_prefix='/api')
+    app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
 
     # Step 3: Initialise Swagger LAST
     swagger_config = {
