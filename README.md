@@ -13,8 +13,8 @@ An AI-powered web application for diabetic retinopathy screening support, design
 | State & API calls | React Query + Axios |
 | PDF generation | @react-pdf/renderer |
 | Routing | React Router v6 |
-| Backend | FastAPI (Python) |
-| Database | Firebase Firestore |
+| Backend | Flask (Python) |
+
 
 > The ML model (EfficientNetB3 trained on APTOS 2019) is served separately via the FastAPI backend and is not included in this repository.
 
