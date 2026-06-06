@@ -285,7 +285,7 @@ export default function PatientRecord() {
                       {patientName || (loading ? 'Loading Patient...' : 'N/A')} {/* Display patientName from state */}
                     </Typography>
                     <Chip
-                      label={`Patient ID: ${latest?.hospital_id || (loading ? '...' : 'N/A')}`} // Handle loading state
+                      label={`Record ID: ${recordId || (loading ? '...' : 'N/A')}`} // Display recordId from URL
                       size="small"
                       sx={{ bgcolor: '#FFF7E6', color: '#8B6F22', fontWeight: 700 }}
                     />
