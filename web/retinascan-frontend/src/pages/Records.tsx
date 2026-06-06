@@ -1,10 +1,13 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import {
+  Alert,
+  AlertTitle,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Fab,
   FormControl,
   IconButton,
@@ -13,6 +16,7 @@ import {
   MenuItem,
   Pagination,
   Select,
+  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -35,64 +39,37 @@ import {
   TrendingUpOutlined as TrendingUpIcon,
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
+import dayjs from 'dayjs';
+import api from '../services/api';
+import toast from 'react-hot-toast';
 
-type RecordRow = {
-  reportId: string;
-  patientName: string;
-  hospitalId: string;
-  date: string;
-  eye: 'OD' | 'OS';
-  grade: 'R0 - NORMAL' | 'R1 - MILD' | 'R2 - MODERATE' | 'R3 - SEVERE';
+// --- Interfaces ---
+
+interface ScreeningRecord {
+  id: number;
+  patient_name: string;
+  patient_age: number;
+  patient_sex: string;
+  hospital_id: string;
+  eye: string;
+  grade: number;
+  grade_label: string;
   confidence: number;
-};
+  recommendation_urgency: string;
+  recommendation_color: string;
+  refer: boolean;
+  facility_name: string;
+  screened_at: string;
+}
 
-const RECORDS: RecordRow[] = [
-  {
-    reportId: '#RS-88219',
-    patientName: 'Jonathan Harker',
-    hospitalId: 'HOSP-4421',
-    date: 'Oct 24, 2023',
-    eye: 'OD',
-    grade: 'R2 - MODERATE',
-    confidence: 94,
-  },
-  {
-    reportId: '#RS-88218',
-    patientName: 'Elena Rodriguez',
-    hospitalId: 'HOSP-9921',
-    date: 'Oct 24, 2023',
-    eye: 'OS',
-    grade: 'R0 - NORMAL',
-    confidence: 96,
-  },
-  {
-    reportId: '#RS-88115',
-    patientName: 'Arthur Morgan',
-    hospitalId: 'HOSP-3310',
-    date: 'Oct 23, 2023',
-    eye: 'OD',
-    grade: 'R3 - SEVERE',
-    confidence: 91,
-  },
-  {
-    reportId: '#RS-88112',
-    patientName: 'Sarah Jenkins',
-    hospitalId: 'HOSP-1102',
-    date: 'Oct 23, 2023',
-    eye: 'OS',
-    grade: 'R1 - MILD',
-    confidence: 92,
-  },
-  {
-    reportId: '#RS-88218',
-    patientName: 'Elena Rodriguez',
-    hospitalId: 'HOSP-9921',
-    date: 'Oct 24, 2023',
-    eye: 'OS',
-    grade: 'R0 - NORMAL',
-    confidence: 96,
-  },
-];
+interface PaginationInfo {
+  page: number;
+  per_page: number;
+  total: number;
+  pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
 
 function FilterLabel({ children }: { children: ReactNode }) {
   return (
@@ -113,21 +90,23 @@ function FilterLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function gradeChip(grade: RecordRow['grade']) {
-  const baseSx = { height: 26, fontWeight: 700, borderRadius: '999px', fontSize: '0.72rem' };
-
-  switch (grade) {
-    case 'R0 - NORMAL':
-      return <Chip label={grade} size="small" sx={{ ...baseSx, bgcolor: '#E8F5EE', color: '#1A6B3C' }} />;
-    case 'R1 - MILD':
-      return <Chip label={grade} size="small" sx={{ ...baseSx, bgcolor: '#FFF7E6', color: '#B7791F' }} />;
-    case 'R2 - MODERATE':
-      return <Chip label={grade} size="small" sx={{ ...baseSx, bgcolor: '#FFF0D9', color: '#C05621' }} />;
-    case 'R3 - SEVERE':
-      return <Chip label={grade} size="small" sx={{ ...baseSx, bgcolor: '#FFE8EA', color: '#C1121F' }} />;
-    default:
-      return <Chip label={grade} size="small" sx={baseSx} />;
-  }
+function GradeBadge({ record }: { record: ScreeningRecord }) {
+  const color = record.recommendation_color;
+  return (
+    <Chip
+      label={record.grade_label}
+      size="small"
+      sx={{
+        height: 26,
+        fontWeight: 700,
+        borderRadius: '999px',
+        fontSize: '0.72rem',
+        bgcolor: `${color}15`,
+        color: color,
+        border: `1px solid ${color}30`,
+      }}
+    />
+  );
 }
 
 function SummaryCard({
@@ -157,11 +136,75 @@ function SummaryCard({
 }
 
 export default function Records() {
-  const [search, setSearch] = useState('');
-  const [dateRange, setDateRange] = useState('30');
-  const [gradeFilter, setGradeFilter] = useState('all');
-  const [eyeFilter, setEyeFilter] = useState('all');
-  const [page, setPage] = useState(1);
+  // --- State ---
+  const [records, setRecords] = useState<ScreeningRecord[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filters, setFilters] = useState({
+    search: '',
+    grade: '',
+    eye: '',
+  });
+
+  // Local state for search input to handle debounce
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // --- Fetch Logic ---
+  const fetchRecords = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams();
+      params.append('page', String(currentPage));
+      params.append('per_page', '10');
+      if (filters.search) params.append('search', filters.search);
+      if (filters.grade)  params.append('grade',  filters.grade);
+      if (filters.eye)    params.append('eye',     filters.eye);
+
+      const response = await api.get(`/api/records?${params}`);
+      setRecords(response.data.records);
+      setPagination(response.data.pagination);
+    } catch (err) {
+      setError('Failed to load screening history. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: searchQuery }));
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Re-fetch on filter or page change
+  useEffect(() => {
+    fetchRecords();
+  }, [currentPage, filters]);
+
+  // --- Handlers ---
+  const handleDownloadPDF = async (record_id: number) => {
+    try {
+      const response = await api.get(`/api/records/${record_id}/pdf`, { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `RetinaScan-RS${record_id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Report downloaded');
+    } catch (error) {
+      toast.error('Failed to download report');
+    }
+  };
 
   return (
     <Box className="relative w-full pb-20">
@@ -204,8 +247,8 @@ export default function Records() {
                 fullWidth
                 size="small"
                 placeholder="Search by patient name, ID or report ID..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 slotProps={{
                   input: {
                     startAdornment: (
@@ -228,8 +271,8 @@ export default function Records() {
               <FilterLabel>Date range</FilterLabel>
               <FormControl fullWidth size="small">
                 <Select
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value)}
+                  value="30"
+                  disabled
                   sx={{ borderRadius: '8px', bgcolor: '#F9FBFA' }}
                 >
                   <MenuItem value="7">Last 7 Days</MenuItem>
@@ -243,15 +286,20 @@ export default function Records() {
               <FilterLabel>Grade</FilterLabel>
               <FormControl fullWidth size="small">
                 <Select
-                  value={gradeFilter}
-                  onChange={(e) => setGradeFilter(e.target.value)}
+                  value={filters.grade || 'all'}
+                  onChange={(e) => {
+                    const val = e.target.value === 'all' ? '' : e.target.value;
+                    setFilters(prev => ({ ...prev, grade: val }));
+                    setCurrentPage(1);
+                  }}
                   sx={{ borderRadius: '8px', bgcolor: '#F9FBFA' }}
                 >
                   <MenuItem value="all">All Grades</MenuItem>
-                  <MenuItem value="r0">R0 - Normal</MenuItem>
-                  <MenuItem value="r1">R1 - Mild</MenuItem>
-                  <MenuItem value="r2">R2 - Moderate</MenuItem>
-                  <MenuItem value="r3">R3 - Severe</MenuItem>
+                  <MenuItem value="0">Normal (Healthy)</MenuItem>
+                  <MenuItem value="1">Mild NPDR</MenuItem>
+                  <MenuItem value="2">Moderate NPDR</MenuItem>
+                  <MenuItem value="3">Severe NPDR</MenuItem>
+                  <MenuItem value="4">Proliferative (PDR)</MenuItem>
                 </Select>
               </FormControl>
             </div>
@@ -262,8 +310,13 @@ export default function Records() {
                 exclusive
                 fullWidth
                 size="small"
-                value={eyeFilter}
-                onChange={(_, value) => value && setEyeFilter(value)}
+                value={filters.eye || 'all'}
+                onChange={(_, value) => {
+                  if (value) {
+                    setFilters(prev => ({ ...prev, eye: value === 'all' ? '' : value }));
+                    setCurrentPage(1);
+                  }
+                }}
                 sx={{
                   '& .MuiToggleButton-root': {
                     textTransform: 'none',
@@ -280,8 +333,8 @@ export default function Records() {
                 }}
               >
                 <ToggleButton value="all">All</ToggleButton>
-                <ToggleButton value="l">L</ToggleButton>
-                <ToggleButton value="r">R</ToggleButton>
+                <ToggleButton value="Left">L</ToggleButton>
+                <ToggleButton value="Right">R</ToggleButton>
               </ToggleButtonGroup>
             </div>
           </div>
@@ -295,7 +348,7 @@ export default function Records() {
             <Table size="small" sx={{ minWidth: 900 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: '#F9FBFA' }}>
-                  {['Report ID', 'Patient Name', 'Hospital ID', 'Date', 'Eye', 'Grade', 'Confidence', 'Actions'].map(
+                  {['Report ID', 'Patient Name', 'Date', 'Eye', 'Grade', 'Confidence', 'Refer', 'Actions'].map(
                     (col) => (
                       <TableCell
                         key={col}
@@ -315,92 +368,141 @@ export default function Records() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {RECORDS.map((row) => (
-                  <TableRow key={row.reportId} hover>
-                    <TableCell sx={{ color: '#718096', fontWeight: 600 }}>{row.reportId}</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>{row.patientName}</TableCell>
-                    <TableCell sx={{ color: 'text.secondary' }}>{row.hospitalId}</TableCell>
-                    <TableCell sx={{ color: 'text.secondary' }}>{row.date}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={row.eye}
-                        size="small"
-                        sx={{
-                          height: 24,
-                          fontWeight: 700,
-                          bgcolor: '#EDF2F0',
-                          color: 'text.secondary',
-                          borderRadius: '6px',
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>{gradeChip(row.grade)}</TableCell>
-                    <TableCell sx={{ minWidth: 140 }}>
-                      <div className="flex items-center gap-2">
-                        <LinearProgress
-                          variant="determinate"
-                          value={row.confidence}
-                          sx={{
-                            flex: 1,
-                            height: 6,
-                            borderRadius: 999,
-                            bgcolor: '#EDF2F0',
-                            '& .MuiLinearProgress-bar': {
-                              borderRadius: 999,
-                              bgcolor: 'primary.main',
-                            },
-                          }}
-                        />
-                        <Typography variant="caption" sx={{ fontWeight: 700, minWidth: 28 }}>
-                          {row.confidence}%
-                        </Typography>
-                      </div>
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        component={Link}
-                        to={`/records/${encodeURIComponent(row.reportId.replace('#', ''))}`}
-                        sx={{ color: 'primary.main' }}
-                        aria-label="View record"
+                {loading ? (
+                  [...Array(5)].map((_, i) => (
+                    <TableRow key={i}>
+                      {[...Array(8)].map((_, j) => (
+                        <TableCell key={j}><Skeleton variant="text" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : error ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                      <Alert 
+                        severity="error" 
+                        action={<Button color="inherit" size="small" onClick={fetchRecords}>Retry</Button>}
+                        sx={{ display: 'inline-flex' }}
                       >
-                        <EyeIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" sx={{ color: 'text.secondary' }} aria-label="Download PDF">
-                        <PdfIcon fontSize="small" />
-                      </IconButton>
+                        {error}
+                      </Alert>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : records.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 10 }}>
+                      <Typography variant="body1" sx={{ color: 'text.secondary', mb: 2 }}>
+                        No screening records found matching your criteria.
+                      </Typography>
+                      <Button component={Link} to="/new-screening" variant="contained">
+                        Start New Screening
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  records.map((row) => (
+                    <TableRow key={row.id} hover>
+                      <TableCell sx={{ color: '#718096', fontWeight: 600 }}>#RS{row.id}</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>{row.patient_name}</TableCell>
+                      <TableCell sx={{ color: 'text.secondary' }}>{dayjs(row.screened_at).format('DD MMM YYYY')}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={row.eye}
+                          size="small"
+                          sx={{
+                            height: 24,
+                            fontWeight: 700,
+                            bgcolor: '#EDF2F0',
+                            color: 'text.secondary',
+                            borderRadius: '6px',
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell><GradeBadge record={row} /></TableCell>
+                      <TableCell sx={{ minWidth: 140 }}>
+                        <div className="flex items-center gap-2">
+                          <LinearProgress
+                            variant="determinate"
+                            value={row.confidence > 1 ? row.confidence : row.confidence * 100}
+                            sx={{
+                              flex: 1,
+                              height: 6,
+                              borderRadius: 999,
+                              bgcolor: '#EDF2F0',
+                              '& .MuiLinearProgress-bar': {
+                                borderRadius: 999,
+                                bgcolor: 'primary.main',
+                              },
+                            }}
+                          />
+                          <Typography variant="caption" sx={{ fontWeight: 700, minWidth: 28 }}>
+                            {Math.round(row.confidence > 1 ? row.confidence : row.confidence * 100)}%
+                          </Typography>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={row.refer ? 'YES' : 'NO'} 
+                          size="small"
+                          color={row.refer ? 'error' : 'default'}
+                          variant={row.refer ? 'filled' : 'outlined'}
+                          sx={{ fontWeight: 800, fontSize: '0.62rem', height: 20 }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          size="small"
+                          component={Link}
+                          to={`/records/${row.id}`}
+                          sx={{ color: 'primary.main' }}
+                          aria-label="View record"
+                        >
+                          <EyeIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton 
+                          size="small" 
+                          sx={{ color: 'text.secondary' }} 
+                          aria-label="Download PDF"
+                          onClick={() => handleDownloadPDF(row.id)}
+                        >
+                          <PdfIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </Box>
 
           <div className="flex flex-col gap-3 border-t border-[#E8EDEA] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Showing 1 to 10 of 2,481 records
+              {pagination 
+                ? `Showing ${(pagination.page - 1) * pagination.per_page + 1} to ${Math.min(pagination.page * pagination.per_page, pagination.total)} of ${pagination.total.toLocaleString()} records • Page ${pagination.page} of ${pagination.pages}`
+                : 'Loading records...'}
             </Typography>
             <Pagination
-              count={5}
-              page={page}
-              onChange={(_, value) => setPage(value)}
+              count={pagination?.pages || 0}
+              page={currentPage}
+              onChange={(_, value) => setCurrentPage(value)}
+              disabled={loading}
               shape="rounded"
               size="small"
               sx={{
-                '& .MuiPaginationItem-root': { fontWeight: 700 },
-                '& .Mui-selected': {
-                  bgcolor: 'primary.main !important',
-                  color: '#fff !important',
-                },
-              }}
-            />
+                 '& .MuiPaginationItem-root': { fontWeight: 700 },
+                 '& .Mui-selected': {
+                   bgcolor: 'primary.main !important',
+                   color: '#fff !important',
+                 },
+               }}
+             />
           </div>
         </CardContent>
       </Card>
 
       {/* Summary stats */}
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard icon={<BarChartIcon fontSize="small" />} label="Total Screenings" value="12,842" />
+        <SummaryCard icon={<BarChartIcon fontSize="small" />} label="Total Screenings" value={pagination?.total.toLocaleString() || '...'} />
         <SummaryCard icon={<TrendingUpIcon fontSize="small" />} label="AI Flagged Rate" value="18.4%" />
         <SummaryCard icon={<ShieldIcon fontSize="small" />} label="Mean Confidence" value="96.2%" />
         <SummaryCard icon={<ClockIcon fontSize="small" />} label="Avg. Processing" value="4.2s" />
